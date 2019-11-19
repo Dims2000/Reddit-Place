@@ -2,7 +2,10 @@ package place.network;
 
 import place.PlaceException;
 
-import java.io.*;
+import java.io.Closeable;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.Socket;
 
 /**
@@ -20,13 +23,13 @@ public class User implements Closeable {
 	 */
 	private Socket socket;
 	/**
-	 * The {@link BufferedReader} used as a gateway to reading responses from the server.
+	 * The {@link ObjectInputStream} used as a gateway to reading responses from the server.
 	 */
-	private BufferedReader in;
+	private ObjectInputStream in;
 	/**
-	 * The {@link PrintStream} used as a gateway to writing to the server.
+	 * The {@link ObjectOutputStream} used as a gateway to writing to the server.
 	 */
-	private PrintStream out;
+	private ObjectOutputStream out;
 
 	/**
 	 * Create a new User by attempting to connect to a server with a given host name and port number. The {@link Socket}
@@ -39,8 +42,8 @@ public class User implements Closeable {
 	public User(String host, int port) throws PlaceException {
 		try {
 			socket = new Socket(host, port);
-			in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-			out = new PrintStream(socket.getOutputStream(), true);
+			in = new ObjectInputStream(socket.getInputStream());
+			out = new ObjectOutputStream(socket.getOutputStream());
 		} catch (IOException e) {
 			throw new PlaceException("Failed to connect to the server", e);
 		}
@@ -48,21 +51,21 @@ public class User implements Closeable {
 
 	/**
 	 * Get the gateway that this User uses to read responses from the server. Warning: close() should NEVER be invoked on the
-	 * {@link BufferedReader} that is returned from this method as it is closed from within the close() method of this class.
+	 * {@link ObjectOutputStream} that is returned from this method as it is closed from within the close() method of this class.
 	 *
 	 * @return a BufferedReader that reads what the server sends this user
 	 */
-	public BufferedReader getInputStream() {
+	public ObjectInputStream getInputStream() {
 		return in;
 	}
 
 	/**
 	 * Get the gateway that this User uses to write to the server. Warning: close() should NEVER be invoked on the
-	 * {@link PrintStream} that is returned from this method as it is closed from within the close() method of this class.
+	 * {@link ObjectInputStream} that is returned from this method as it is closed from within the close() method of this class.
 	 *
 	 * @return a PrintStream that sends data to the server
 	 */
-	public PrintStream getOutputStream() {
+	public ObjectOutputStream getOutputStream() {
 		return out;
 	}
 
