@@ -71,16 +71,18 @@ public class User implements Closeable {
 
 	/**
 	 * Close the {@link Socket} and I/O streams that this User holds.
-	 *
-	 * @throws IOException if an I/O error occurs while closing the aforementioned resources
 	 */
 	@Override
-	public void close() throws IOException {
-		if (socket != null)
-			socket.close();
-		if (in != null)
-			in.close();
-		if (out != null)
-			out.close();
+	public void close() {
+		try {
+			if (socket != null)
+				socket.close();
+			if (in != null)
+				in.close();
+			if (out != null)
+				out.close();
+		} catch (IOException e) {
+			System.out.println("Attempt to close a resource more than once");
+		}
 	}
 }
