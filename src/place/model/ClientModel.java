@@ -3,6 +3,7 @@ package place.model;
 import place.PlaceBoard;
 import place.PlaceTile;
 
+import java.net.Socket;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -12,15 +13,23 @@ import java.util.List;
  *
  * @author Sean Strout @ RIT CS
  */
-public class ClientModel {
+public class ClientModel
+{
+    public enum Status { ERROR, LOGIN_SUCCESSFUL, BOARD, TILE_CHANGED }
+
     /** the actual board that holds the tiles */
     private PlaceBoard board;
 
     /** observers of the model (PlacePTUI and PlaceGUI - the "views") */
     private List<Observer<ClientModel, PlaceTile>> observers = new LinkedList<>();
 
+    public ClientModel(String args)
+    {
+        Socket socket;
+    }
+
     /**
-     * Add a new observer.
+     * Add a new observer. of tiles. Sent only once from the server to a client directly after a successful login attempt.
      *
      * @param observer the new observer
      */
@@ -31,9 +40,9 @@ public class ClientModel {
     /**
      * Notify observers the model has changed.
      */
-    private void notifyObservers(PlaceTile tile){
-        for (Observer<ClientModel, PlaceTile> observer: observers) {
+    private void notifyObservers(PlaceTile tile)
+    {
+        for (Observer<ClientModel, PlaceTile> observer: observers)
             observer.update(this, tile);
-        }
     }
 }
