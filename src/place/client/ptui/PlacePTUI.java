@@ -7,21 +7,22 @@ import place.model.Observer;
 
 public class PlacePTUI implements Observer<ClientModel, PlaceTile>
 {
-    private static ClientModel model;
+    private ClientModel model;
 
-    private static PlaceBoard board;
+    private PlaceBoard board;
 
     public void go(String[] args)
     {
         model = new ClientModel(args);
         model.addObserver(this);
-        model.run();
+        model.start();
     }
 
     @Override
     public void update(ClientModel model, PlaceTile tile)
     {
-
+        board.setTile(tile);
+        System.out.println(board.toString());
     }
 
     public static void main(String[] args)
