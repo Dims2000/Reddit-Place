@@ -8,13 +8,17 @@ import java.io.Serializable;
  *
  * @author Sean Strout @ RIT CS
  */
-public class PlaceTile implements Serializable {
+public class PlaceTile implements Serializable
+{
     /** the row */
     private int row;
+
     /** the column */
     private int col;
+
     /** the color */
     private PlaceColor color;
+
     /** the owner */
     private String user;
 
