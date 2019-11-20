@@ -5,15 +5,20 @@ import place.PlaceTile;
 import place.model.ClientModel;
 import place.model.Observer;
 
-public class PlacePTUI implements Observer<ClientModel, PlaceTile>
+import java.io.PrintWriter;
+import java.util.List;
+import java.util.Scanner;
+
+public class PlacePTUI extends ConsoleApplication implements Observer<ClientModel, PlaceTile>
 {
     private ClientModel model;
 
-    private PlaceBoard board;
-
-    public void go(String[] args)
+    @Override
+    public void go(Scanner consoleIn, PrintWriter consoleOut)
     {
-        model = new ClientModel(args);
+        List<String> args = getArguments(); // Command line arguments
+        // By passing new String[0] to toArray() we are telling the method to return String[] instead of Object[]
+        model = new ClientModel(args.toArray(new String[0]));
         model.addObserver(this);
         model.start();
     }
@@ -21,6 +26,7 @@ public class PlacePTUI implements Observer<ClientModel, PlaceTile>
     @Override
     public void update(ClientModel model, PlaceTile tile)
     {
+        PlaceBoard board = model.getBoard();
         board.setTile(tile);
         System.out.println(board.toString());
     }
@@ -30,6 +36,6 @@ public class PlacePTUI implements Observer<ClientModel, PlaceTile>
         if (args.length != 3)
             System.out.println("Usage: java PlaceClient host port username");
 
-        new PlacePTUI().go(args);
+        launch(PlacePTUI.class, args);
     }
 }
