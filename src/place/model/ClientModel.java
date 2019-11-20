@@ -19,8 +19,12 @@ import java.util.List;
  */
 public class ClientModel extends Thread
 {
+    public enum Status { RUNNING, NOT_RUNNING, ERROR }
+
     /** the actual board that holds the tiles */
     private PlaceBoard board;
+
+    private Status status;
 
     private User user;
 
@@ -34,6 +38,7 @@ public class ClientModel extends Thread
         String host = args[0];
         int port = Integer.parseInt(args[1]);
         username = args[2];
+        status = Status.NOT_RUNNING;
 
         try {
             user = new User(host, port);
@@ -85,9 +90,7 @@ public class ClientModel extends Thread
      *
      * @param observer the new observer
      */
-    public void addObserver(Observer<ClientModel, PlaceTile> observer) {
-        this.observers.add(observer);
-    }
+    public void addObserver(Observer<ClientModel, PlaceTile> observer) { this.observers.add(observer); }
 
     /**
      * Notify observers the model has changed.
@@ -98,29 +101,53 @@ public class ClientModel extends Thread
             observer.update(this, tile);
     }
 
+    public PlaceBoard getBoard() { return board; }
+
+    public Status getStatus() { return status; }
+
+    public String getUsername() { return username; }
+
+    public void changeTile(PlaceTile tile)
+    {
+        try
+        {
+            PlaceRequest<PlaceTile> changedTile = new PlaceRequest<>(PlaceRequest.RequestType.CHANGE_TILE, tile);
+            user.getOutputStream().writeUnshared(changedTile);
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+    }
+
     @Override
     public void run()
     {
+        status = Status.RUNNING;
+
         try
         {
             login(username);
 
             Object comm;
 
-            while ((comm = user.getInputStream().readUnshared()) != null)
+            while (status == Status.RUNNING)
             {
-                PlaceRequest protocol = null;
-
-                if (comm instanceof PlaceRequest)
-                    protocol = (PlaceRequest)comm;
-
-                assert protocol != null;
-                switch (protocol.getType())
+                while ((comm = user.getInputStream().readUnshared()) != null)
                 {
-                    case ERROR:
-                        break;
-                    case TILE_CHANGED:
-                        notifyObservers((PlaceTile)protocol.getData());
+                    PlaceRequest protocol = null;
+
+                    if (comm instanceof PlaceRequest)
+                        protocol = (PlaceRequest)comm;
+
+                    assert protocol != null;
+                    switch (protocol.getType())
+                    {
+                        case ERROR:
+                            break;
+                        case TILE_CHANGED:
+                            notifyObservers((PlaceTile)protocol.getData());
+                    }
                 }
             }
         }
