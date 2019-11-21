@@ -4,16 +4,19 @@ import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
+import javafx.scene.control.Tooltip;
+import javafx.scene.layout.*;
+import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.stage.Stage;
+import javafx.util.Duration;
+import place.PlaceBoard;
 import place.PlaceColor;
 import place.PlaceTile;
 import place.model.ClientModel;
 import place.model.Observer;
 
+import java.util.EnumSet;
 import java.util.List;
 
 public class PlaceGUI extends Application implements Observer<ClientModel, PlaceTile> {
@@ -21,6 +24,21 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 	 * The model that this GUI client uses
 	 */
 	private ClientModel model;
+	/**
+	 * A set of colors that are so dark that any text overlayed on top of them should be displayed white.
+	 */
+	private static final EnumSet<PlaceColor> DARK_COLORS = EnumSet.of(
+		PlaceColor.BLACK,
+		PlaceColor.MAROON,
+		PlaceColor.RED,
+		PlaceColor.OLIVE,
+		PlaceColor.GREEN,
+		PlaceColor.TEAL,
+		PlaceColor.NAVY,
+		PlaceColor.BLUE,
+		PlaceColor.PURPLE,
+		PlaceColor.FUCHSIA
+	);
 
 	@Override
 	public void init() {
@@ -64,9 +82,40 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 	private GridPane makePlaceBoard() {
 		GridPane tiles = new GridPane();
 
-		for (int row = 1; row <= model.getBoard().DIM; row++)
-			for (int col = 1; col <= model.getBoard().DIM; col++)
-				tiles.add(new Rectangle(50, 50), col, row);
+		PlaceBoard board = model.getBoard();
+
+		for (int row = 1; row <= board.DIM; row++) {
+			for (int col = 1; col <= board.DIM; col++) {
+				// A visual representation of the tile
+				Rectangle guiTile = new Rectangle(50, 50);
+				// The actual tile the Rectangle will represent
+				PlaceTile tileData = board.getTile(row - 1, col - 1);
+
+				// Set the rectangle to be the tile's color
+				PlaceColor tileColor = tileData.getColor();
+				guiTile.setFill(Color.web(tileColor.getName()));
+				// Add a tooltip to each rectangle
+				String coordinate = String.format("(%d, %d)", tileData.getRow(), tileData.getCol());
+				String tileOwner = tileData.getOwner();
+				String timestamp = String.format(
+					"%te/%tm/%ty\n%tl:%tM:%tS",
+					tileData.getTime(),
+					tileData.getTime(),
+					tileData.getTime(),
+					tileData.getTime(),
+					tileData.getTime(),
+					tileData.getTime()
+				);
+
+				Tooltip t = new Tooltip(
+					String.format("%s\n%s\n%s", coordinate, tileOwner, timestamp)
+				);
+				t.setShowDelay(Duration.millis(500));
+				Tooltip.install(guiTile, t);
+
+				tiles.add(guiTile, col, row);
+			}
+		}
 
 		return tiles;
 	}
@@ -85,8 +134,21 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 			ToggleButton button = new ToggleButton(color.toString());
 			// Set the ToggleButton to be part of the same group so that only one at a time can be "activated"
 			button.setToggleGroup(group);
-			// TODO: Set the ToggleButton's color
-
+			// Button styling
+			// TODO: Make the button more visible that it is clicked
+			// Set the ToggleButton's color
+			button.setBackground(
+				new Background(
+					new BackgroundFill(
+						Color.web(color.getName()),
+						CornerRadii.EMPTY,
+						null
+					)
+				)
+			);
+			// If the color is dark (black text is hard to see), then make text white
+			if (DARK_COLORS.contains(color))
+				button.setTextFill(Color.WHITE);
 			// Add the ToggleButton to the HBox
 			buttons.getChildren().add(button);
 		}
