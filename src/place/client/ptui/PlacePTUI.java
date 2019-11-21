@@ -1,61 +1,92 @@
 package place.client.ptui;
 
+import place.PlaceBoard;
 import place.PlaceColor;
 import place.PlaceTile;
 import place.model.ClientModel;
 import place.model.Observer;
 
+import java.io.PrintWriter;
 import java.util.Scanner;
 
-public class PlacePTUI implements Observer<ClientModel, PlaceTile>
+public class PlacePTUI extends ConsoleApplication implements Observer<ClientModel, PlaceTile>
 {
+    private PlaceBoard board;
+
     private ClientModel model;
 
     private final PlaceColor[] COLORS = PlaceColor.values();
 
-    public void go(String[] args)
+    @Override
+    public void go(Scanner consoleIn, PrintWriter consoleOut)
     {
-        model = new ClientModel(args);
+        model = new ClientModel(getArguments().toArray(String[]::new));
         model.addObserver(this);
         model.start();
 
-        Scanner input = new Scanner(System.in);
+        board = model.getBoard();
+        System.out.println(board.toString());
 
         while (model.getStatus() == ClientModel.Status.RUNNING)
         {
-            System.out.print("Change tile: row col color? ");
+            consoleOut.print("Change tile: row col color? ");
+            consoleOut.flush();
+            int[] tileValues = validateTileChange(consoleIn.nextLine());
 
-            String[] components = input.nextLine().split(" ");
-
-            if (components.length > 1 && Integer.parseInt(components[0]) == -1)
-                break;
-
-            while (components.length != 3)
-                components = input.nextLine().split(" ");
-
-            int row = Integer.parseInt(components[0]);
-            int col = Integer.parseInt(components[1]);
-            int color = Integer.parseInt(components[2],16);
-
-            PlaceTile tile = new PlaceTile(row, col, model.getUsername(), COLORS[color]);
-            model.changeTile(tile);
-
-            try
+            if (tileValues != null)
             {
-                Thread.sleep(500);
-            }
-            catch (InterruptedException e)
-            {
-                e.printStackTrace();
+                int row = tileValues[0]; int col = tileValues[1]; int color = tileValues[2];
+
+                PlaceTile tile = new PlaceTile(row, col, model.getUsername(), COLORS[color], System.currentTimeMillis());
+                board.setTile(tile);
+                model.changeTile(tile);
+
+                try {
+                    Thread.sleep(500);
+                }
+                catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
             }
         }
+
+        consoleIn.close();
+        consoleOut.close();
+    }
+
+    public int[] validateTileChange(String command)
+    {
+        String[] components = command.split(" ");
+
+        try
+        {
+            if (components.length == 3)
+            {
+                int row = Integer.parseInt(components[0]);
+                int col = Integer.parseInt(components[1]);
+                int color = Integer.parseInt(components[2],16);
+
+                if ((row < board.DIM && row >= 0) && (col < board.DIM && col >= 0) && (color < COLORS.length && color >= 0))
+                        return new int[]{row, col, color};
+            }
+            else if (components.length == 1)
+            {
+                int connectionTerminate = Integer.parseInt(components[0]);
+
+                if (connectionTerminate == -1)
+                    model.endConnection();
+            }
+        }
+        catch (NumberFormatException ignored) {}
+
+        return null;
     }
 
     @Override
     public void update(ClientModel model, PlaceTile tile)
     {
-        model.getBoard().setTile(tile);
-        System.out.println(model.getBoard().toString());
+        board.setTile(tile);
+        System.out.println(board.toString());
     }
 
     public static void main(String[] args)
@@ -63,6 +94,6 @@ public class PlacePTUI implements Observer<ClientModel, PlaceTile>
         if (args.length != 3)
             System.out.println("Usage: java PlaceClient host port username");
 
-        new PlacePTUI().go(args);
+        launch(PlacePTUI.class, args);
     }
 }

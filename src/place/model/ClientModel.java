@@ -51,12 +51,13 @@ public class ClientModel extends Thread
         }
     }
 
-    private void board()
+    private synchronized void board()
     {
         try
         {
             PlaceRequest boardMessage = validateProtocol(user.getInputStream().readUnshared(), PlaceRequest.RequestType.BOARD);
             board = (PlaceBoard)boardMessage.getData();
+            notifyAll();
         }
         catch (ClassNotFoundException e) {
             error("ClassNotFoundException: An error occurred receiving BOARD from the server");
@@ -110,7 +111,25 @@ public class ClientModel extends Thread
         user.close();
     }
 
-    public PlaceBoard getBoard() { return board; }
+    public synchronized PlaceBoard getBoard()
+    {
+        try
+        {
+            while (board == null)
+                wait();
+        }
+        catch (InterruptedException e) {
+            error("InterruptedException: An error occurred when waiting to receive BOARD from server");
+        }
+
+        return board;
+    }
+
+    public void endConnection()
+    {
+        status = Status.NOT_RUNNING;
+        user.close();
+    }
 
     public Status getStatus() { return status; }
 
@@ -182,12 +201,18 @@ public class ClientModel extends Thread
                 {
                     case ERROR:
                         PlaceRequest error = validateProtocol(protocol, PlaceRequest.RequestType.ERROR);
+
+                        assert error != null;
                         String errorMessage = (String)error.getData();
+
                         error(errorMessage);
                         break;
                     case TILE_CHANGED:
                         PlaceRequest changedTile = validateProtocol(protocol, PlaceRequest.RequestType.TILE_CHANGED);
+
+                        assert changedTile != null;
                         PlaceTile tile = (PlaceTile)changedTile.getData();
+
                         changedTile(tile);
                         break;
                     default:
@@ -198,10 +223,13 @@ public class ClientModel extends Thread
         catch (ClassNotFoundException e) {
             error("ClassNotFoundException: An error occurred receiving data from the server during the main loop");
         }
-        catch (IOException e) {
-            error(e.getMessage());
+        catch (IOException e)
+        {
+            if (status != Status.NOT_RUNNING)
+                error(e.getMessage());
         }
-        finally {
+        finally
+        {
             status = Status.FINISHED;
             user.close();
         }
