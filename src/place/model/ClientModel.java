@@ -19,7 +19,7 @@ import java.util.List;
  */
 public class ClientModel extends Thread
 {
-    public enum Status { RUNNING, NOT_RUNNING, ERROR }
+    public enum Status { RUNNING, NOT_RUNNING, FINISHED, ERROR }
 
     /** the actual board that holds the tiles */
     private PlaceBoard board;
@@ -35,54 +35,56 @@ public class ClientModel extends Thread
 
     public ClientModel(String[] args)
     {
-        String host = args[0];
-        int port = Integer.parseInt(args[1]);
-        username = args[2];
-        status = Status.NOT_RUNNING;
-
-        try {
-            user = new User(host, port);
-        }
-        catch (PlaceException e) {
-            e.getMessage();
-        }
-
-    }
-
-    public void login(String username) throws IOException
-    {
-        PlaceRequest<String> login = new PlaceRequest<String>(PlaceRequest.RequestType.LOGIN, username);
-        user.getOutputStream().writeUnshared(login);
-
         try
         {
-            Object comm = user.getInputStream().readUnshared();
-            PlaceRequest loginSuccess;
+            String host = args[0];
+            int port = Integer.parseInt(args[1]);
 
-            if (comm instanceof PlaceRequest)
-                loginSuccess = (PlaceRequest)comm;
-            else
-                throw new IOException();
+            username = args[2];
+            status = Status.NOT_RUNNING;
+            user = new User(host, port);
+        }
+        catch (PlaceException e)
+        {
+            error(e.getMessage());
+            System.exit(1);
+        }
+    }
 
-            if (loginSuccess.getType() == PlaceRequest.RequestType.LOGIN_SUCCESS &&
-            loginSuccess.getData().equals(username))
-            {
-                comm = user.getInputStream().readUnshared();
-                PlaceRequest boardMessage;
-
-                if (comm instanceof PlaceRequest)
-                    boardMessage = (PlaceRequest)comm;
-                else
-                    throw new IOException();
-
-                board = (PlaceBoard)boardMessage.getData();
-                System.out.println(board.toString());
-            }
-
+    private void board()
+    {
+        try
+        {
+            PlaceRequest boardMessage = validateProtocol(user.getInputStream().readUnshared(), PlaceRequest.RequestType.BOARD);
+            board = (PlaceBoard)boardMessage.getData();
         }
         catch (ClassNotFoundException e) {
-            e.printStackTrace();
+            error("ClassNotFoundException: An error occurred receiving BOARD from the server");
         }
+        catch (IOException e) {
+            error("IOException: The connection with the server was lost when verifying BOARD");
+        }
+    }
+
+    private boolean login(String username)
+    {
+        try
+        {
+            PlaceRequest<String> login = new PlaceRequest<>(PlaceRequest.RequestType.LOGIN, username);
+            user.getOutputStream().writeUnshared(login);
+
+            PlaceRequest loginSuccess = validateProtocol(user.getInputStream().readUnshared(), PlaceRequest.RequestType.LOGIN_SUCCESS);
+
+            return loginSuccess.getData().equals(username);
+        }
+        catch (ClassNotFoundException e) {
+            error("ClassNotFoundException: An error occurred receiving LOGIN_SUCCESSFUL from the server");
+        }
+        catch (IOException e) {
+            error("IOException: The connection with the server was lost when verifying LOGIN");
+        }
+
+        return false;
     }
 
     /**
@@ -101,11 +103,49 @@ public class ClientModel extends Thread
             observer.update(this, tile);
     }
 
+    private void error(String errorMessage)
+    {
+        status = Status.ERROR;
+        System.err.println(errorMessage);
+        user.close();
+    }
+
     public PlaceBoard getBoard() { return board; }
 
     public Status getStatus() { return status; }
 
+    private PlaceRequest validateProtocol(Object request, PlaceRequest.RequestType expectedType)
+    {
+        if (request instanceof PlaceRequest)
+        {
+            PlaceRequest comm = (PlaceRequest)request;
+
+            if (comm.getType() == expectedType)
+            {
+                switch (expectedType)
+                {
+                    case LOGIN_SUCCESS:
+                        if (comm.getData() instanceof String)
+                            return comm;
+                        break;
+                    case BOARD:
+                        if (comm.getData() instanceof PlaceBoard)
+                            return comm;
+                        break;
+                    case TILE_CHANGED:
+                        if (comm.getData() instanceof PlaceTile)
+                            return comm;
+                }
+            }
+        }
+
+        error("PlaceException: Invalid data received from the server");
+        return null;
+    }
+
     public String getUsername() { return username; }
+
+    private void changedTile(PlaceTile tile) { notifyObservers(tile); }
 
     public void changeTile(PlaceTile tile)
     {
@@ -114,48 +154,56 @@ public class ClientModel extends Thread
             PlaceRequest<PlaceTile> changedTile = new PlaceRequest<>(PlaceRequest.RequestType.CHANGE_TILE, tile);
             user.getOutputStream().writeUnshared(changedTile);
         }
-        catch (IOException e)
-        {
-            e.printStackTrace();
+        catch (IOException e) {
+            error("IOException: An error occurred sending CHANGE_TILE to server");
         }
     }
 
     @Override
     public void run()
     {
-        status = Status.RUNNING;
-
         try
         {
-            login(username);
+            if (!login(username))
+                throw new IOException("IOException: The username returned by the server did not match the client");
 
+            board();
+            status = Status.RUNNING;
             Object comm;
 
-            while (status == Status.RUNNING)
+            while (status == Status.RUNNING && (comm = user.getInputStream().readUnshared()) != null)
             {
-                while ((comm = user.getInputStream().readUnshared()) != null)
+                if (!(comm instanceof PlaceRequest))
+                    throw new IOException("IOException: The message sent by the server is not an instance of PlaceRequest");
+
+                PlaceRequest protocol = (PlaceRequest)comm;
+
+                switch (protocol.getType())
                 {
-                    PlaceRequest protocol = null;
-
-                    if (comm instanceof PlaceRequest)
-                        protocol = (PlaceRequest)comm;
-
-                    assert protocol != null;
-                    switch (protocol.getType())
-                    {
-                        case ERROR:
-                            break;
-                        case TILE_CHANGED:
-                            notifyObservers((PlaceTile)protocol.getData());
-                    }
+                    case ERROR:
+                        PlaceRequest error = validateProtocol(protocol, PlaceRequest.RequestType.ERROR);
+                        String errorMessage = (String)error.getData();
+                        error(errorMessage);
+                        break;
+                    case TILE_CHANGED:
+                        PlaceRequest changedTile = validateProtocol(protocol, PlaceRequest.RequestType.TILE_CHANGED);
+                        PlaceTile tile = (PlaceTile)changedTile.getData();
+                        changedTile(tile);
+                        break;
+                    default:
+                        throw new IOException("IOException: The message sent by the server is an invalid protocol");
                 }
             }
         }
-        catch (ClassNotFoundException | IOException e) {
-            e.printStackTrace();
+        catch (ClassNotFoundException e) {
+            error("ClassNotFoundException: An error occurred receiving data from the server during the main loop");
+        }
+        catch (IOException e) {
+            error(e.getMessage());
         }
         finally {
-
+            status = Status.FINISHED;
+            user.close();
         }
     }
 }
