@@ -4,10 +4,7 @@ import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
-import javafx.scene.control.ContentDisplay;
-import javafx.scene.control.ToggleButton;
-import javafx.scene.control.ToggleGroup;
-import javafx.scene.control.Tooltip;
+import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
@@ -19,6 +16,7 @@ import place.PlaceTile;
 import place.model.ClientModel;
 import place.model.Observer;
 
+import java.time.Instant;
 import java.util.EnumSet;
 import java.util.List;
 
@@ -32,6 +30,11 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 	 * rectangle's state can easily be changed
 	 */
 	private Rectangle[][] tileGrid;
+	/**
+	 * A {@link ToggleGroup} that keeps track of all the bottoms at the bottom of the window to see which one is
+	 * "activated."
+	 */
+	private ToggleGroup colorControlsGroup = new ToggleGroup();
 	/**
 	 * A set of colors that are so dark that any text overlayed on top of them should be displayed white.
 	 */
@@ -103,8 +106,37 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 				// A visual representation of the tile
 				Rectangle guiTile = new Rectangle(50, 50);
 				tileGrid[row - 1][col - 1] = guiTile;
-				// TODO: Add a click listener to the rectangle so that it can do model.changeTile() when clicked on
+				// Add a click listener to the rectangle so that it can do model.changeTile() when clicked on
 
+				// The coordinates of the rectangle being clicked on
+				final int r = row - 1;
+				final int c = col - 1;
+
+				guiTile.setOnMouseClicked(e -> Platform.runLater(() -> {
+					try {
+						PlaceTile newState = new PlaceTile(
+							r,
+							c,
+							model.getUsername(),
+							(PlaceColor) colorControlsGroup.getSelectedToggle().getUserData(),
+							Instant.now().toEpochMilli()
+						);
+						model.changeTile(newState);
+					} catch (NullPointerException ex) {
+						// If the user does not select a color at first then a NullPointerException is thrown
+						Alert errorMessage = new Alert(
+							Alert.AlertType.ERROR,
+							"You must pick a color to paint the canvas with first."
+						);
+						errorMessage.show();
+					}
+
+					try {
+						Thread.sleep(500);
+					} catch (InterruptedException ex) {
+						ex.printStackTrace();
+					}
+				}));
 				// The actual tile the Rectangle will represent
 				PlaceTile tileData = board.getTile(row - 1, col - 1);
 
@@ -130,14 +162,14 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 	 */
 	private HBox makeButtonRow() {
 		HBox buttons = new HBox();
-		ToggleGroup group = new ToggleGroup();
 		// Create a ToggleButton for every PlaceColor
 		for (PlaceColor color : PlaceColor.values()) {
 			ToggleButton button = new ToggleButton(color.toString());
 			// Set the ToggleButton to be part of the same group so that only one at a time can be "activated"
-			button.setToggleGroup(group);
+			button.setToggleGroup(colorControlsGroup);
 			// Button styling
 			// TODO: Make the button more visible that it is clicked
+			//		https://stackoverflow.com/questions/15819242/how-to-make-a-button-appear-to-have-been-clicked-or-selected-javafx2/42140819#42140819
 			// Set the ToggleButton's color
 			button.setBackground(
 				new Background(
@@ -148,6 +180,8 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 					)
 				)
 			);
+			// Tell the ToggleButton what color it is
+			button.setUserData(color);
 			// If the color is dark (black text is hard to see), then make text white
 			if (DARK_COLORS.contains(color))
 				button.setTextFill(Color.WHITE);
