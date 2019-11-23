@@ -1,7 +1,10 @@
 package place.client.gui;
 
 import javafx.application.Application;
+import javafx.application.Platform;
+import javafx.geometry.Insets;
 import javafx.scene.Scene;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.Tooltip;
@@ -25,6 +28,11 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 	 */
 	private ClientModel model;
 	/**
+	 * A 2D matrix of {@link Rectangle}s that this GUI keeps track of so that an individual
+	 * rectangle's state can easily be changed
+	 */
+	private Rectangle[][] tileGrid;
+	/**
 	 * A set of colors that are so dark that any text overlayed on top of them should be displayed white.
 	 */
 	private static final EnumSet<PlaceColor> DARK_COLORS = EnumSet.of(
@@ -46,10 +54,15 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 		model = new ClientModel(args.toArray(String[]::new));
 		model.addObserver(this);
 		model.start();
+		// Block until board is gotten
+		while (model.getBoard() == null);
 	}
 
     @Override
     public void start(Stage primaryStage) throws Exception {
+		// Initialize the tileGrid with the dimensions of the board gotten from the server
+		PlaceBoard board = model.getBoard();
+		tileGrid = new Rectangle[board.DIM][board.DIM];
 		/*
 		 * The Scene will be divided into 2 sections:
 		 * (1) The upper section will be a GridPane of Rectangles representing the Place board.
@@ -64,6 +77,7 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 		// Section (2)
 		HBox colorControls = makeButtonRow();
 		rootNode.setBottom(colorControls);
+		BorderPane.setMargin(colorControls, new Insets(10, 0, 0, 0));
 
 		Scene mainScene = new Scene(rootNode);
 		primaryStage.setScene(mainScene);
@@ -88,29 +102,17 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 			for (int col = 1; col <= board.DIM; col++) {
 				// A visual representation of the tile
 				Rectangle guiTile = new Rectangle(50, 50);
+				tileGrid[row - 1][col - 1] = guiTile;
+				// TODO: Add a click listener to the rectangle so that it can do model.changeTile() when clicked on
+
 				// The actual tile the Rectangle will represent
 				PlaceTile tileData = board.getTile(row - 1, col - 1);
 
 				// Set the rectangle to be the tile's color
 				PlaceColor tileColor = tileData.getColor();
-				guiTile.setFill(Color.web(tileColor.getName()));
+				guiTile.setFill(placeColor2JavaFXColor(tileColor));
 				// Add a tooltip to each rectangle
-				String coordinate = String.format("(%d, %d)", tileData.getRow(), tileData.getCol());
-				String tileOwner = tileData.getOwner();
-				String timestamp = String.format(
-					"%te/%tm/%ty\n%tl:%tM:%tS",
-					tileData.getTime(),
-					tileData.getTime(),
-					tileData.getTime(),
-					tileData.getTime(),
-					tileData.getTime(),
-					tileData.getTime()
-				);
-
-				Tooltip t = new Tooltip(
-					String.format("%s\n%s\n%s", coordinate, tileOwner, timestamp)
-				);
-				t.setShowDelay(Duration.millis(500));
+				Tooltip t = makeTooltip(tileData);
 				Tooltip.install(guiTile, t);
 
 				tiles.add(guiTile, col, row);
@@ -140,7 +142,7 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 			button.setBackground(
 				new Background(
 					new BackgroundFill(
-						Color.web(color.getName()),
+						placeColor2JavaFXColor(color),
 						CornerRadii.EMPTY,
 						null
 					)
@@ -155,10 +157,66 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 		return buttons;
 	}
 
+	/**
+	 * Create a tooltip for a certain {@link PlaceTile}. A tooltip will contain the following information:
+	 * <ul>
+	 *     <li>The tile's coordinate (row, col)</li>
+	 *     <li>The current owner of the tile</li>
+	 *     <li>The time the tile was changed in the format D/M/Y HH:MM:SS</li>
+	 *     <li>The tile color</li>
+	 * </ul>
+	 *
+	 * @param tileData the tile with the information to create the tooltip about
+	 * @return a tooltip containing information about the given tile
+	 */
+	private Tooltip makeTooltip(PlaceTile tileData) {
+		String coordinate = String.format("(%d, %d)", tileData.getRow(), tileData.getCol());
+		String tileOwner = tileData.getOwner();
+		String timestamp = String.format(
+			"%te/%tm/%ty\n%tl:%tM:%tS",
+			tileData.getTime(),
+			tileData.getTime(),
+			tileData.getTime(),
+			tileData.getTime(),
+			tileData.getTime(),
+			tileData.getTime()
+		);
+
+		Tooltip t = new Tooltip(
+			String.format("%s\n%s\n%s", coordinate, tileOwner, timestamp)
+		);
+		t.setShowDelay(Duration.millis(500));
+		t.setGraphic(new Rectangle(30, 30, placeColor2JavaFXColor(tileData.getColor())));
+		t.setContentDisplay(ContentDisplay.LEFT);
+
+		return t;
+	}
+
     @Override
     public void update(ClientModel model, PlaceTile tile) {
-		// TODO: implement PlaceGUI.update
-    }
+		// Notify the board that a tile has changed
+		model.getBoard().setTile(tile);
+		// And now change the GUI to reflect this change
+		int row = tile.getRow();
+		int col = tile.getCol();
+
+		// NOTICE: I have no idea if I need Platform.runLater
+		Platform.runLater(() -> {
+			Rectangle square = tileGrid[row][col];
+			square.setFill(placeColor2JavaFXColor(tile.getColor()));
+			Tooltip.install(square, makeTooltip(tile));
+		});
+	}
+
+	/**
+	 * Convert a {@link PlaceColor} to a {@link Color}.
+	 *
+	 * @param placeColor the PlaceColor to convert to the JavaFX color
+	 * @return the JavaFX color
+	 */
+	private static Color placeColor2JavaFXColor(PlaceColor placeColor) {
+		return Color.web(placeColor.getName());
+	}
 
     public static void main(String[] args) {
         if (args.length != 3) {
