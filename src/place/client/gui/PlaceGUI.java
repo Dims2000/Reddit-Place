@@ -180,6 +180,9 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 					)
 				)
 			);
+			// Make the black button the default selection
+			if (color == PlaceColor.BLACK)
+				colorControlsGroup.selectToggle(button);
 			// Tell the ToggleButton what color it is
 			button.setUserData(color);
 			// If the color is dark (black text is hard to see), then make text white
