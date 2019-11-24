@@ -54,8 +54,7 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 	@Override
 	public void init() {
 		List<String> args = getParameters().getRaw();
-		model = new ClientModel(args.toArray(String[]::new));
-		model.addObserver(this);
+		model = new ClientModel(args.toArray(String[]::new), this);
 		model.start();
 		// Block until board is gotten
 		while (model.getBoard() == null);
@@ -87,6 +86,8 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 		primaryStage.setTitle(
 			String.format("Place: %s", model.getUsername())
 		);
+		// End connection when the window is closed
+		primaryStage.setOnCloseRequest(e -> model.endConnection());
         primaryStage.show();
 	}
 
