@@ -39,12 +39,15 @@ public class User implements Closeable {
 	 * @param port the port number to connect to
 	 * @throws PlaceException if the connection failed
 	 */
-	public User(String host, int port) throws PlaceException {
-		try {
+	public User(String host, int port) throws PlaceException
+	{
+		try
+		{
 			socket = new Socket(host, port);
 			in = new ObjectInputStream(socket.getInputStream());
 			out = new ObjectOutputStream(socket.getOutputStream());
-		} catch (IOException e) {
+		}
+		catch (IOException e) {
 			throw new PlaceException("Failed to connect to the server", e);
 		}
 	}
@@ -55,9 +58,7 @@ public class User implements Closeable {
 	 *
 	 * @return a BufferedReader that reads what the server sends this user
 	 */
-	public ObjectInputStream getInputStream() {
-		return in;
-	}
+	public synchronized ObjectInputStream getInputStream() { return in; }
 
 	/**
 	 * Get the gateway that this User uses to write to the server. Warning: close() should NEVER be invoked on the
@@ -65,24 +66,25 @@ public class User implements Closeable {
 	 *
 	 * @return a PrintStream that sends data to the server
 	 */
-	public ObjectOutputStream getOutputStream() {
-		return out;
-	}
+	public synchronized ObjectOutputStream getOutputStream() { return out; }
 
 	/**
 	 * Close the {@link Socket} and I/O streams that this User holds.
 	 */
 	@Override
-	public void close() {
-		try {
+	public void close()
+	{
+		try
+		{
 			if (socket != null)
 				socket.close();
 			if (in != null)
 				in.close();
 			if (out != null)
 				out.close();
-		} catch (IOException e) {
-			System.out.println("Attempt to close a resource more than once");
+		}
+		catch (IOException e) {
+			System.err.println("Attempt to close a resource more than once");
 		}
 	}
 }
