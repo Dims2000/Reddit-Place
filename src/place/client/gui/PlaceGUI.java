@@ -128,7 +128,8 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 	@Override
 	public void init() {
 		List<String> args = getParameters().getRaw();
-		model = new ClientModel(args.toArray(String[]::new), this);
+		model = new ClientModel(args.toArray(String[]::new));
+		model.addObserver(this);
 		model.start();
 		// Block until board is gotten
 		while (model.getBoard() == null) ;
@@ -149,9 +150,10 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 		 * */
 		BorderPane rootNode = new BorderPane();
 		// Section (1)
-		rootNode.setCenter(makePlaceBoard());
+		GridPane placeBoard = makePlaceBoard();
+		rootNode.setCenter(placeBoard);
 		// Section (2)
-		HBox colorControls = makeButtonRow();
+		HBox colorControls = makeButtonRow(placeBoard);
 		rootNode.setBottom(colorControls);
 		BorderPane.setMargin(colorControls, new Insets(10, 0, 0, 0));
 
@@ -172,24 +174,35 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 	 * @return a GridPane of Rectangles
 	 */
 	private GridPane makePlaceBoard() {
+		final double MIN_SCALE = 0.1;
+		final double MAX_SCALE = 10;
+
 		GridPane tiles = new GridPane();
 
 		// Make GridPane scrollable
 		tiles.setOnScroll(scrollEvent -> {
+			double scale = tiles.getScaleY();
+			double oldScale = scale;
+
+			if (scrollEvent.getDeltaY() < 0)
+				scale /= SCALE_DELTA;
+			else
+				scale *= SCALE_DELTA;
+
+			scale = clamp(scale, MIN_SCALE, MAX_SCALE);
+
+			double f = (scale / oldScale) - 1;
+
+			double dx = (scrollEvent.getSceneX() - (tiles.getBoundsInParent().getWidth() / 2 + tiles.getBoundsInParent().getMinX()));
+			double dy = (scrollEvent.getSceneY() - (tiles.getBoundsInParent().getHeight() / 2 + tiles.getBoundsInParent().getMinY()));
+
+			tiles.setScaleX(scale);
+			tiles.setScaleY(scale);
+
+			tiles.setTranslateX(tiles.getTranslateX() - (f * dx));
+			tiles.setTranslateY(tiles.getTranslateY() - (f * dy));
 			scrollEvent.consume();
-
-			if (scrollEvent.getDeltaY() == 0)
-				return;
-
-			double scaleFactor = (scrollEvent.getDeltaY() > 0)
-				? SCALE_DELTA
-				: 1 / SCALE_DELTA;
-
-			tiles.setScaleX(tiles.getScaleX() * scaleFactor);
-			tiles.setScaleY(tiles.getScaleY() * scaleFactor);
 		});
-
-		// TODO: Make GridPane pannable
 
 		// Add tiles to the GridPane
 		PlaceBoard board = model.getBoard();
@@ -225,11 +238,13 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 
 	/**
 	 * A utility method for generating an {@link HBox} of {@link ToggleButton}s to represent the row of
-	 * buttons at the bottom of the screen that the user can click on to select a color.
+	 * buttons at the bottom of the screen that the user can click on to select a color. The last button, home, rescales
+	 * the GridPane to the default settings in case the user zooms in or out too far.
 	 *
+	 * @param viewport the GridPane that the home button will adjust the zoom level of
 	 * @return an HBox of ToggleButtons
 	 */
-	private HBox makeButtonRow() {
+	private HBox makeButtonRow(GridPane viewport) {
 		HBox buttons = new HBox();
 		// Create a ToggleButton for every PlaceColor
 		for (PlaceColor color : PlaceColor.values()) {
@@ -260,6 +275,18 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 			// Add the ToggleButton to the HBox
 			buttons.getChildren().add(button);
 		}
+		// Add a button to reset the viewport
+		Button etPhoneHome = new Button("Home");
+		etPhoneHome.setOnAction(e -> {
+			viewport.setScaleX(1.0);
+			viewport.setScaleY(1.0);
+
+			viewport.setTranslateX(0.0);
+			viewport.setTranslateY(0.0);
+		});
+
+		buttons.getChildren().add(etPhoneHome);
+
 		return buttons;
 	}
 
@@ -322,6 +349,27 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 	 */
 	private static Color placeColor2JavaFXColor(PlaceColor placeColor) {
 		return Color.web(placeColor.getName());
+	}
+
+	/**
+	 * Ensure a value is within a certain range. This method will return the given value, x, unless it is out of bounds,
+	 * in which case one of two things can happen:
+	 * <ol>
+	 *     <li>if the value is below the lower bound, then the lower bound is returned</li>
+	 *     <li>if the value is above the upper bound, then the upper bound is returned</li>
+	 * </ol>
+	 *
+	 * @param x   the value to return
+	 * @param min the lower bound of the range
+	 * @param max the upper bound of the range
+	 * @return the value, unless it is out of bounds
+	 */
+	private static double clamp(double x, double min, double max) {
+		if (x < min)
+			return min;
+		if (x > max)
+			return max;
+		return x;
 	}
 
 	public static void main(String[] args) {

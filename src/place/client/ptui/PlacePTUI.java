@@ -39,7 +39,7 @@ public class PlacePTUI extends ConsoleApplication implements Observer<ClientMode
     @Override
     public void go(Scanner consoleIn, PrintWriter consoleOut)
     {
-        model = new ClientModel(getArguments().toArray(String[]::new), this); // Creates the model...
+        model = new ClientModel(getArguments().toArray(String[]::new)); // Creates the model...
         model.addObserver(this);
         model.start(); // ...and starts it
 
