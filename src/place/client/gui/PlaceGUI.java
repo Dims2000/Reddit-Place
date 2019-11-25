@@ -2,9 +2,11 @@ package place.client.gui;
 
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
@@ -20,6 +22,13 @@ import java.time.Instant;
 import java.util.EnumSet;
 import java.util.List;
 
+/**
+ * A graphical user interface to the Place application. The GUI consists of a board of colored squares representing
+ * the stats of the place board, and a row of buttons at the bottom that the user can click on to select which color
+ * they want to paint the Place board with. This class encapsulates all the logic to create such a window.
+ *
+ * @author Joey Territo
+ */
 public class PlaceGUI extends Application implements Observer<ClientModel, PlaceTile> {
 	/**
 	 * The model that this GUI client uses
@@ -35,6 +44,11 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 	 * "activated."
 	 */
 	private ToggleGroup colorControlsGroup = new ToggleGroup();
+
+	/**
+	 * The scaling multiplier when zooming in
+	 */
+	private static final double SCALE_DELTA = 1.05;
 	/**
 	 * A set of colors that are so dark that any text overlayed on top of them should be displayed white.
 	 */
@@ -51,17 +65,77 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 		PlaceColor.FUCHSIA
 	);
 
+	/**
+	 * A class that tiles in a PlaceGUI use to respond to when they are clicked on. This is equivalent to creating a
+	 * lambda to pass to setOnMouseClicked(), but creating a separate class allows the makePlaceBoard() method to not
+	 * get unnecessarily large (in terms of lines of code). This class must keep track of the coordinates of the
+	 * rectangle for which it is handling {@link MouseEvent}s.
+	 */
+	class MouseClickedEventHandler implements EventHandler<MouseEvent> {
+		/**
+		 * The row in the {@link PlaceBoard} that the rectangle that this MouseClickedEventHandler handles MouseEvents
+		 * for resides in.
+		 */
+		private int row;
+		/**
+		 * The column in the {@link PlaceBoard} that the rectangle that this MouseClockedEventHandler handles MouseEvents
+		 * for resides in.
+		 */
+		private int column;
+
+		/**
+		 * Create a new MouseClickedEventHandler for a rectangle at coordinates (row, col) in the PlaceBoard.
+		 *
+		 * @param row the row of the PlaceBoard that the rectangle is in
+		 * @param col the column of the PlaceBoard that the rectangle is in
+		 */
+		MouseClickedEventHandler(int row, int col) {
+			this.row = row;
+			this.column = col;
+		}
+
+		@Override
+		public void handle(MouseEvent mouseEvent) {
+			// Change the color of the tile that was clicked on
+			Platform.runLater(() -> {
+				try {
+					PlaceTile newState = new PlaceTile(
+						row,
+						column,
+						model.getUsername(),
+						(PlaceColor) colorControlsGroup.getSelectedToggle().getUserData(),
+						Instant.now().toEpochMilli()
+					);
+					model.changeTile(newState);
+				} catch (NullPointerException e) {
+					// If the user does not select a color at first then a NullPointerException is thrown
+					Alert errorMessage = new Alert(
+						Alert.AlertType.ERROR,
+						"You must pick a color to paint the canvas with first."
+					);
+					errorMessage.show();
+				}
+
+				try {
+					Thread.sleep(500);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			});
+		}
+	}
+
 	@Override
 	public void init() {
 		List<String> args = getParameters().getRaw();
 		model = new ClientModel(args.toArray(String[]::new), this);
 		model.start();
 		// Block until board is gotten
-		while (model.getBoard() == null);
+		while (model.getBoard() == null) ;
 	}
 
-    @Override
-    public void start(Stage primaryStage) throws Exception {
+	@Override
+	public void start(Stage primaryStage) {
 		// Initialize the tileGrid with the dimensions of the board gotten from the server
 		PlaceBoard board = model.getBoard();
 		tileGrid = new Rectangle[board.DIM][board.DIM];
@@ -88,7 +162,7 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 		);
 		// End connection when the window is closed
 		primaryStage.setOnCloseRequest(e -> model.endConnection());
-        primaryStage.show();
+		primaryStage.show();
 	}
 
 	/**
@@ -100,6 +174,24 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 	private GridPane makePlaceBoard() {
 		GridPane tiles = new GridPane();
 
+		// Make GridPane scrollable
+		tiles.setOnScroll(scrollEvent -> {
+			scrollEvent.consume();
+
+			if (scrollEvent.getDeltaY() == 0)
+				return;
+
+			double scaleFactor = (scrollEvent.getDeltaY() > 0)
+				? SCALE_DELTA
+				: 1 / SCALE_DELTA;
+
+			tiles.setScaleX(tiles.getScaleX() * scaleFactor);
+			tiles.setScaleY(tiles.getScaleY() * scaleFactor);
+		});
+
+		// TODO: Make GridPane pannable
+
+		// Add tiles to the GridPane
 		PlaceBoard board = model.getBoard();
 
 		for (int row = 1; row <= board.DIM; row++) {
@@ -113,31 +205,7 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 				final int r = row - 1;
 				final int c = col - 1;
 
-				guiTile.setOnMouseClicked(e -> Platform.runLater(() -> {
-					try {
-						PlaceTile newState = new PlaceTile(
-							r,
-							c,
-							model.getUsername(),
-							(PlaceColor) colorControlsGroup.getSelectedToggle().getUserData(),
-							Instant.now().toEpochMilli()
-						);
-						model.changeTile(newState);
-					} catch (NullPointerException ex) {
-						// If the user does not select a color at first then a NullPointerException is thrown
-						Alert errorMessage = new Alert(
-							Alert.AlertType.ERROR,
-							"You must pick a color to paint the canvas with first."
-						);
-						errorMessage.show();
-					}
-
-					try {
-						Thread.sleep(500);
-					} catch (InterruptedException ex) {
-						ex.printStackTrace();
-					}
-				}));
+				guiTile.setOnMouseClicked(new MouseClickedEventHandler(r, c));
 				// The actual tile the Rectangle will represent
 				PlaceTile tileData = board.getTile(row - 1, col - 1);
 
@@ -230,8 +298,8 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 		return t;
 	}
 
-    @Override
-    public void update(ClientModel model, PlaceTile tile) {
+	@Override
+	public void update(ClientModel model, PlaceTile tile) {
 		// Notify the board that a tile has changed
 		model.getBoard().setTile(tile);
 		// And now change the GUI to reflect this change
@@ -256,12 +324,12 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 		return Color.web(placeColor.getName());
 	}
 
-    public static void main(String[] args) {
-        if (args.length != 3) {
-            System.out.println("Usage: java PlaceGUI host port username");
-            System.exit(-1);
-        } else {
-            Application.launch(args);
-        }
-    }
+	public static void main(String[] args) {
+		if (args.length != 3) {
+			System.out.println("Usage: java PlaceGUI host port username");
+			System.exit(-1);
+		} else {
+			Application.launch(args);
+		}
+	}
 }
