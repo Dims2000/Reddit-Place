@@ -12,7 +12,9 @@ import java.util.List;
 
 /**
  * The client side model that is used as the "M" in the MVC paradigm.  All client
- * side applications (PTUI, GUI, bots) are observers of this model.
+ * side applications (PTUI, GUI, bots) are observers of this model. Operates on a
+ * separate thread: after creating the ClientModel object, the calling class must
+ * call start() on the object in order to initiate a concurrent execution of run().
  *
  * @author Sean Strout @ RIT CS
  * @author Dmitry Selin
@@ -111,14 +113,13 @@ public class ClientModel extends Thread
 
     /**
      * Creates a ClientModel. Splits args into respective variables and creates
-     * the corresponding fields. Adds an observer to the new ClientModel.
+     * the corresponding fields.
      *
      * args = [host, port, username]
      *
      * @param args an array of command line arguments passed by the client's view class
-     * @param observer the new observer
      */
-    public ClientModel(String[] args, Observer<ClientModel, PlaceTile> observer)
+    public ClientModel(String[] args)
     {
         try
         {
@@ -127,7 +128,6 @@ public class ClientModel extends Thread
 
             username = args[2];
             user = new User(host, port);
-            addObserver(observer);
 
             status = Status.READY;
         }
@@ -288,8 +288,9 @@ public class ClientModel extends Thread
         try
         {
             if (!login(username)) // If the login process fails - throw an IOException
-                throw new IOException("IOException: The username returned by the server did not match the client");
+                throw new IOException("IOException: The username already exists");
 
+            System.out.println(username + " has successfully connected to the server");
             board(); // Gets the board from the server
 
             while (status == Status.RUNNING) // The main loop
