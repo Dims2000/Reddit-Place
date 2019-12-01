@@ -66,7 +66,7 @@ public class ImageBot extends Bot
 
     /**
      * The main loop of ImageBot that initializes a 2D array (image) that holds a graphic.
-     * The image can be customized to fit any size server. The command line arguments that
+     * The image can be customized directly by a programmer to fit any size server. The command line arguments that
      * are expected are as so...
      *
      * args = [hostName, portNum, username]
