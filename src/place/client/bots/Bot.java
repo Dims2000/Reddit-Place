@@ -14,7 +14,7 @@ import java.time.LocalTime;
  * similar basic behavior as the PlacePTUI class (except the board does not get printed).
  * The class does define the behavior of the bot, but instead makes the method responsible for
  * the behavior abstract. The classes that extend Bot implement the method. When any class extending
- * Bot calls start() - the execution runs concurrently on a separate thread.
+ * Bot must call start() - the execution runs concurrently on a separate thread.
  *
  * @author Dmitry Selin
  */
@@ -108,4 +108,7 @@ public abstract class Bot extends Thread implements Observer<ClientModel, PlaceT
      * class that extends Bot.
      */
     public abstract void botActivity();
+
+    @Override
+    public void update(ClientModel model, PlaceTile placeTile) { board.setTile(placeTile); }
 }

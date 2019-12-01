@@ -61,9 +61,8 @@ public class PlacePTUI extends ConsoleApplication implements Observer<ClientMode
                     // Parses the user input into each respective component of a PlaceTile
                     int row = tileValues[0]; int col = tileValues[1]; int color = tileValues[2];
 
-                    // Creates the PlaceTile from the user input and updates the model board and client board
+                    // Creates the PlaceTile from the user input and updates the client board
                     PlaceTile tile = new PlaceTile(row, col, model.getUsername(), COLORS[color], System.currentTimeMillis());
-                    board.setTile(tile);
                     model.changeTile(tile);
 
                     try {
