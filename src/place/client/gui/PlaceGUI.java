@@ -220,7 +220,7 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 
 				guiTile.setOnMouseClicked(new MouseClickedEventHandler(r, c));
 				// The actual tile the Rectangle will represent
-				PlaceTile tileData = board.getTile(row - 1, col - 1);
+				PlaceTile tileData = board.getTile(r, c);
 
 				// Set the rectangle to be the tile's color
 				PlaceColor tileColor = tileData.getColor();
@@ -252,8 +252,6 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 			// Set the ToggleButton to be part of the same group so that only one at a time can be "activated"
 			button.setToggleGroup(colorControlsGroup);
 			// Button styling
-			// TODO: Make the button more visible that it is clicked
-			//		https://stackoverflow.com/questions/15819242/how-to-make-a-button-appear-to-have-been-clicked-or-selected-javafx2/42140819#42140819
 			// Set the ToggleButton's color
 			button.setBackground(
 				new Background(
