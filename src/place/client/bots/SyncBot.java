@@ -20,7 +20,7 @@ public class SyncBot extends Bot
     public void update(ClientModel model, PlaceTile placeTile)
     {
         image[placeTile.getRow()][placeTile.getCol()] = placeTile.getColor().getNumber();
-        pasteBot.setImage(image);
+        // pasteBot.setImage(image);
     }
 
     private int[][] placeBoardTo2DArray (PlaceBoard board)
@@ -44,7 +44,7 @@ public class SyncBot extends Bot
         getModel().start();
 
         image = placeBoardTo2DArray(getModel().getBoard());
-        pasteBot.setImage(image);
+        // pasteBot.setImage(image);
         pasteBot.start();
     }
 

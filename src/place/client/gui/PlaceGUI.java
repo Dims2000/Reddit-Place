@@ -149,9 +149,15 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 		 * A BorderPane is well-suited for this.
 		 * */
 		BorderPane rootNode = new BorderPane();
+		rootNode.setPickOnBounds(false);
+
+		ScrollPane viewport = new ScrollPane();
+		viewport.setVbarPolicy(ScrollPane.ScrollBarPolicy.ALWAYS);
+		viewport.setHbarPolicy(ScrollPane.ScrollBarPolicy.ALWAYS);
 		// Section (1)
 		GridPane placeBoard = makePlaceBoard();
-		rootNode.setCenter(placeBoard);
+		viewport.setContent(placeBoard);
+		rootNode.setCenter(viewport);
 		// Section (2)
 		HBox colorControls = makeButtonRow(placeBoard);
 		rootNode.setBottom(colorControls);
@@ -180,6 +186,7 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 		GridPane tiles = new GridPane();
 
 		// Make GridPane scrollable
+/*
 		tiles.setOnScroll(scrollEvent -> {
 			double scale = tiles.getScaleY();
 			double oldScale = scale;
@@ -203,6 +210,7 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 			tiles.setTranslateY(tiles.getTranslateY() - (f * dy));
 			scrollEvent.consume();
 		});
+*/
 
 		// Add tiles to the GridPane
 		PlaceBoard board = model.getBoard();
@@ -230,6 +238,8 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 				Tooltip.install(guiTile, t);
 
 				tiles.add(guiTile, col, row);
+				GridPane.setVgrow(guiTile, Priority.NEVER);
+				GridPane.setHgrow(guiTile, Priority.NEVER);
 			}
 		}
 
@@ -283,7 +293,19 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 			viewport.setTranslateY(0.0);
 		});
 
-		buttons.getChildren().add(etPhoneHome);
+		Button zoomIn = new Button("+");
+		zoomIn.setOnAction(e -> {
+			viewport.setScaleX(viewport.getScaleX() * 1.10);
+			viewport.setScaleY(viewport.getScaleY() * 1.10);
+		});
+
+		Button zoomOut = new Button("-");
+		zoomOut.setOnAction(e -> {
+			viewport.setScaleX(viewport.getScaleX() * 0.90);
+			viewport.setScaleY(viewport.getScaleY() * 0.90);
+		});
+
+		buttons.getChildren().addAll(etPhoneHome, zoomIn, zoomOut);
 
 		return buttons;
 	}

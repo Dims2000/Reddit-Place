@@ -25,7 +25,7 @@ public class PlaceServer extends Thread
 
     private HashMap<String, PlaceServerThread> usernames = new HashMap<>();
 
-    private StatisticsListener statListener;
+    // private StatisticsListener statListener;
 
     private final int PORT;
 
@@ -42,7 +42,7 @@ public class PlaceServer extends Thread
     public synchronized void changeBoardTile (PlaceTile tile)
     {
         board.setTile(tile);
-        statListener.update(this, tile);
+        // statListener.update(this, tile);
         updateServerThreads(tile);
     }
 
@@ -64,12 +64,12 @@ public class PlaceServer extends Thread
         try (ServerSocket serverSocket = new ServerSocket(PORT))
         {
             board = new PlaceBoard(DIM);
-            statListener = new StatisticsListener(DIM);
+            // statListener = new StatisticsListener(DIM);
 
             while (true)
             {
                 Socket client = serverSocket.accept();
-                // Start new Thread
+                new PlaceServerThread(this, client).start();
             }
         }
         catch (IOException e) {

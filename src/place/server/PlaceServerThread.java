@@ -1,5 +1,8 @@
 package place.server;
 
+import place.PlaceBoard;
+import place.PlaceTile;
+import place.model.Observer;
 import place.network.PlaceRequest;
 
 import java.io.IOException;
@@ -13,7 +16,7 @@ import java.net.Socket;
  * @author Joey Territo
  * @since 12/3/19
  */
-public class PlaceServerThread extends Thread {
+public class PlaceServerThread extends Thread implements Observer<PlaceServer, PlaceTile> {
 	/**
 	 * The PlaceServer this client's thread is running on
 	 */
@@ -22,6 +25,12 @@ public class PlaceServerThread extends Thread {
 	 * TODO: Documentation
 	 */
 	private Socket client;
+	/**
+	 * TODO: Documentation
+	 */
+	private PlaceBoard board;
+
+	private String username;
 
 	/**
 	 * TODO: Documentation
@@ -32,16 +41,23 @@ public class PlaceServerThread extends Thread {
 	PlaceServerThread(PlaceServer clientServer, Socket client) {
 		server = clientServer;
 		this.client = client;
+		board = clientServer.getBoard();
+		username = "";
 	}
 
 	@Override
 	public void run() {
 		try (
-			ObjectInputStream in = new ObjectInputStream(client.getInputStream());
-			ObjectOutputStream out = new ObjectOutputStream(client.getOutputStream())
+			ObjectOutputStream out = new ObjectOutputStream(client.getOutputStream());
+			ObjectInputStream in = new ObjectInputStream(client.getInputStream())
 		) {
 			// Listen for LOGIN
 			PlaceRequest<?> maybeLogin = (PlaceRequest<?>) in.readUnshared();
+			try {
+				username = (String) maybeLogin.getData();
+			} catch (ClassCastException e) {
+				username = "";
+			}
 			// If it's not LOGIN...
 			if (maybeLogin.getType() != PlaceRequest.RequestType.LOGIN) {
 				// ...then send back ERROR
@@ -50,24 +66,60 @@ public class PlaceServerThread extends Thread {
 					"Did not receive an initial LOGIN request"
 				);
 				out.writeUnshared(didntLogin);
+			} else if (!server.isUsernameValid((String) maybeLogin.getData())) {
+				/* The first request was LOGIN, but the username was invalid
+				   Since the username is invalid, send back an ERROR */
+				PlaceRequest<String> usernameTaken = new PlaceRequest<>(
+					PlaceRequest.RequestType.ERROR,
+					String.format("A user with the username %s is already logged in", username)
+				);
+				out.writeUnshared(usernameTaken);
 			} else {
-				// The first request was LOGIN
-				// Now check for valid username
-				String desiredUsername = (String) maybeLogin.getData();
-				// If the username is invalid, send back an ERROR
-				// if ()
-				// 		If valid, then move on to indefinitely listening for CHANGE_TILE
-				// 		Else, also send back an ERROR
+				// Login was successful
+				PlaceRequest<String> loginSuccessful = new PlaceRequest<>(PlaceRequest.RequestType.LOGIN_SUCCESS, username);
+				out.writeUnshared(loginSuccessful);
+				// The board is sent only once directly after a successful login attempt
+				PlaceRequest<PlaceBoard> initialBoard = new PlaceRequest<>(PlaceRequest.RequestType.BOARD, board);
+				out.writeUnshared(initialBoard);
+				// Tell the main server about a new username
+				server.logIn(username, this);
+				// Display the username and IP address of a client when they login
+				System.out.printf("%s (%s) has entered the chat\n", username, client.getInetAddress());
+				// Move on to indefinitely listening for CHANGE_TILE
+				PlaceRequest<?> maybeChangeTile;
+				// TODO: Detect when the client closes the connection
+				while ((maybeChangeTile = (PlaceRequest<?>) in.readUnshared()) != null) {
+					// Whenever a CHANGE_TILE request is received, change the requested tile
+					if (maybeChangeTile.getType() == PlaceRequest.RequestType.CHANGE_TILE) {
+						PlaceTile tileToChange = (PlaceTile) maybeChangeTile.getData();
+						// When a tile change comes in, it should be recorded by the server with a timestamp of the current time
+						tileToChange.setTime(System.currentTimeMillis());
+						server.changeBoardTile(tileToChange);
 
-				// What the client has chosen to do
-				PlaceRequest<?> clientAction;
-				while ((clientAction = (PlaceRequest<?>) in.readUnshared()) != null) {
-
+						PlaceRequest<PlaceTile> tileChanged = new PlaceRequest<>(PlaceRequest.RequestType.TILE_CHANGED, tileToChange);
+						out.writeUnshared(tileChanged);
+						sleep(500);
+					}
 				}
 			}
-			client.close();
-		} catch (IOException | ClassNotFoundException e) {
-			e.printStackTrace(); // For now
+		} catch (IOException e) {
+			// Tell the main server that the username that this client was using is now available
+			server.logOff(username);
+			// Display a message when a user logs off
+			System.out.printf("%s (%s) has left the chat\n", username, client.getInetAddress());
+			try {
+				client.close();
+			} catch (IOException ex) {
+				ex.printStackTrace();
+			}
+		} catch (ClassNotFoundException | InterruptedException e) {
+			e.printStackTrace();
 		}
+	}
+
+	@Override
+	public void update(PlaceServer placeServer, PlaceTile placeTile) {
+		board.setTile(placeTile);
+		// TODO: unimplemented
 	}
 }
