@@ -19,13 +19,23 @@ import java.util.HashMap;
  *
  * @author Sean Strout @ RIT CS
  */
-public class PlaceServer
+public class PlaceServer extends Thread
 {
-    private static PlaceBoard board;
+    private PlaceBoard board;
 
     private HashMap<String, PlaceServerThread> usernames = new HashMap<>();
 
-    private static StatisticsListener statListener;
+    private StatisticsListener statListener;
+
+    private final int PORT;
+
+    private final int DIM;
+
+    public PlaceServer (int port, int DIM)
+    {
+        PORT = port;
+        this.DIM = DIM;
+    }
 
     public synchronized PlaceBoard getBoard() { return board; }
 
@@ -48,6 +58,25 @@ public class PlaceServer
             observer.update(this, tile);
     }
 
+    @Override
+    public void run()
+    {
+        try (ServerSocket serverSocket = new ServerSocket(PORT))
+        {
+            board = new PlaceBoard(DIM);
+            statListener = new StatisticsListener(DIM);
+
+            while (true)
+            {
+                Socket client = serverSocket.accept();
+                // Start new Thread
+            }
+        }
+        catch (IOException e) {
+            System.err.println(e.getMessage());
+        }
+    }
+
     /**
      * The main method starts the server and spawns client threads each time a new
      * client connects.
@@ -65,26 +94,11 @@ public class PlaceServer
                 int port = Integer.parseInt(args[0]);
                 int DIM = Integer.parseInt(args[1]);
 
-                try (ServerSocket serverSocket = new ServerSocket(port))
-                {
-                    board = new PlaceBoard(DIM);
-                    statListener = new StatisticsListener(DIM);
-
-                    while (true)
-                    {
-                        Socket client = serverSocket.accept();
-                        // Start new Thread
-                    }
-                }
-                catch (IOException e) {
-                    System.err.println(e.getMessage());
-                }
+                new PlaceServer(port, DIM).start();
             }
             catch (NumberFormatException e) {
                 System.err.println(e.getMessage());
             }
-
-
         }
     }
 }
