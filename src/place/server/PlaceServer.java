@@ -1,11 +1,13 @@
 package place.server;
 
-import java.io.BufferedReader;
+import place.PlaceBoard;
+import place.PlaceTile;
+import place.model.Observer;
+
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.HashMap;
 
 /**
  * The Place server is run on the command line as:
@@ -17,7 +19,35 @@ import java.net.Socket;
  *
  * @author Sean Strout @ RIT CS
  */
-public class PlaceServer {
+public class PlaceServer
+{
+    private static PlaceBoard board;
+
+    private HashMap<String, PlaceServerThread> usernames = new HashMap<>();
+
+    private static StatisticsListener statListener;
+
+    public synchronized PlaceBoard getBoard() { return board; }
+
+    public synchronized void changeBoardTile (PlaceTile tile)
+    {
+        board.setTile(tile);
+        statListener.update(this, tile);
+        updateServerThreads(tile);
+    }
+
+    public synchronized void logIn (String username, PlaceServerThread clientThread) { usernames.put(username, clientThread); }
+
+    public synchronized void logOff (String username) { usernames.remove(username); }
+
+    public synchronized boolean isUsernameValid (String username) { return !usernames.containsKey(username); }
+
+    private void updateServerThreads (PlaceTile tile)
+    {
+        for (Observer<PlaceServer, PlaceTile> observer: usernames.values())
+            observer.update(this, tile);
+    }
+
     /**
      * The main method starts the server and spawns client threads each time a new
      * client connects.
@@ -26,30 +56,35 @@ public class PlaceServer {
      */
     public static void main(String[] args)
     {
-        if (args.length != 2) {
+        if (args.length != 2)
             System.out.println("Usage: java PlaceServer port DIM");
-        }
         else
         {
             try
             {
-                ServerSocket socket = new ServerSocket(Integer.parseInt(args[0]));
-                Socket client = socket.accept();
+                int port = Integer.parseInt(args[0]);
+                int DIM = Integer.parseInt(args[1]);
 
-                BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()));
-                PrintWriter out = new PrintWriter(client.getOutputStream(), true);
-
-                String line;
-
-                while ((line = in.readLine()) != null)
+                try (ServerSocket serverSocket = new ServerSocket(port))
                 {
-                    System.out.println(line);
-                    out.println(line);
+                    board = new PlaceBoard(DIM);
+                    statListener = new StatisticsListener(DIM);
+
+                    while (true)
+                    {
+                        Socket client = serverSocket.accept();
+                        // Start new Thread
+                    }
+                }
+                catch (IOException e) {
+                    System.err.println(e.getMessage());
                 }
             }
-            catch (IOException e) {
-                e.printStackTrace();
+            catch (NumberFormatException e) {
+                System.err.println(e.getMessage());
             }
+
+
         }
     }
 }
