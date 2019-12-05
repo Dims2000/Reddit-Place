@@ -32,25 +32,35 @@ public class PlaceServerThread extends Thread implements Observer<PlaceServer, P
 
 	private String username;
 
+	private ObjectInputStream in;
+	private ObjectOutputStream out;
+
 	/**
 	 * TODO: Documentation
 	 *
 	 * @param clientServer
 	 * @param client
 	 */
-	PlaceServerThread(PlaceServer clientServer, Socket client) {
+	public PlaceServerThread(PlaceServer clientServer, Socket client) {
 		server = clientServer;
 		this.client = client;
 		board = clientServer.getBoard();
 		username = "";
+
+		try
+		{
+			out = new ObjectOutputStream(client.getOutputStream());
+			in = new ObjectInputStream(client.getInputStream());
+		}
+		catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 
 	@Override
 	public void run() {
-		try (
-			ObjectOutputStream out = new ObjectOutputStream(client.getOutputStream());
-			ObjectInputStream in = new ObjectInputStream(client.getInputStream())
-		) {
+		try
+		{
 			// Listen for LOGIN
 			PlaceRequest<?> maybeLogin = (PlaceRequest<?>) in.readUnshared();
 			try {
@@ -120,6 +130,11 @@ public class PlaceServerThread extends Thread implements Observer<PlaceServer, P
 	@Override
 	public void update(PlaceServer placeServer, PlaceTile placeTile) {
 		board.setTile(placeTile);
-		// TODO: unimplemented
+
+		try {
+			out.writeUnshared(new PlaceRequest<>(PlaceRequest.RequestType.TILE_CHANGED, placeTile));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 }
