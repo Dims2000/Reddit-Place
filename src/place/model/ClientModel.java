@@ -229,7 +229,7 @@ public class ClientModel extends Thread
      *
      * @param tile the PlaceTile that was changed by the client
      */
-    public void changeTile(PlaceTile tile)
+    public synchronized void changeTile(PlaceTile tile)
     {
         try
         {
