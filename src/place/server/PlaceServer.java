@@ -7,7 +7,7 @@ import place.model.Observer;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The Place server is run on the command line as:
@@ -23,7 +23,7 @@ public class PlaceServer extends Thread
 {
     private PlaceBoard board;
 
-    private HashMap<String, PlaceServerThread> usernames = new HashMap<>();
+    private ConcurrentHashMap<String, PlaceServerThread> usernames = new ConcurrentHashMap<>();
 
     // private StatisticsListener statListener;
 

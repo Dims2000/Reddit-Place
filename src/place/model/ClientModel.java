@@ -105,6 +105,11 @@ public class ClientModel extends Thread
     public void endConnection()
     {
         status = Status.FINISHED;
+        try {
+            user.getOutputStream().writeUnshared(null);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         user.close();
     }
 

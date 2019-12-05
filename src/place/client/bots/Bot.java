@@ -46,8 +46,13 @@ public abstract class Bot extends Thread implements Observer<ClientModel, PlaceT
 
         board = model.getBoard(); // Initializes board (blocks the current thread until the server sends the board)
 
-        while (model.getStatus() == ClientModel.Status.RUNNING) // The main loop of the Bot
-            botActivity();
+        for (int i = 0; i < 650; i++) // The main loop of the Bot
+        {
+            if (model.getStatus() == ClientModel.Status.RUNNING)
+                botActivity();
+        }
+
+        model.endConnection();
     }
 
     /**
@@ -87,14 +92,18 @@ public abstract class Bot extends Thread implements Observer<ClientModel, PlaceT
      *
      * @return the board
      */
-    public synchronized PlaceBoard getBoard() { return board; }
+    public PlaceBoard getBoard() {
+        return board;
+    }
 
     /**
      * Returns the ClientModel
      *
      * @return the model
      */
-    public synchronized ClientModel getModel() { return model; }
+    public ClientModel getModel() {
+        return model;
+    }
 
     /**
      * Returns the array of colors

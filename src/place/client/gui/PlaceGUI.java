@@ -18,7 +18,6 @@ import place.PlaceTile;
 import place.model.ClientModel;
 import place.model.Observer;
 
-import java.time.Instant;
 import java.util.EnumSet;
 import java.util.List;
 
@@ -104,7 +103,7 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 						column,
 						model.getUsername(),
 						(PlaceColor) colorControlsGroup.getSelectedToggle().getUserData(),
-						Instant.now().toEpochMilli()
+						System.currentTimeMillis()
 					);
 					model.changeTile(newState);
 				} catch (NullPointerException e) {

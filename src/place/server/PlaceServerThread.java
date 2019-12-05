@@ -5,6 +5,7 @@ import place.PlaceTile;
 import place.model.Observer;
 import place.network.PlaceRequest;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -16,7 +17,7 @@ import java.net.Socket;
  * @author Joey Territo
  * @since 12/3/19
  */
-public class PlaceServerThread extends Thread implements Observer<PlaceServer, PlaceTile> {
+public class PlaceServerThread extends Thread implements Observer<PlaceServer, PlaceTile>, Closeable {
 	/**
 	 * The PlaceServer this client's thread is running on
 	 */
@@ -29,11 +30,30 @@ public class PlaceServerThread extends Thread implements Observer<PlaceServer, P
 	 * TODO: Documentation
 	 */
 	private PlaceBoard board;
-
+	/**
+	 * TODO: Documentation
+	 */
 	private String username;
-
+	/**
+	 * TODO: Documentation
+	 */
 	private ObjectInputStream in;
+	/**
+	 * TODO: Documentation
+	 */
 	private ObjectOutputStream out;
+	/**
+	 * TODO: Documentation
+	 */
+	private Status status;
+
+	/**
+	 * TODO: Documentation
+	 */
+	enum Status {
+		RUNNING,
+		ERROR,
+	}
 
 	/**
 	 * TODO: Documentation
@@ -46,21 +66,19 @@ public class PlaceServerThread extends Thread implements Observer<PlaceServer, P
 		this.client = client;
 		board = clientServer.getBoard();
 		username = "";
+		status = Status.RUNNING;
 
-		try
-		{
+		try {
 			out = new ObjectOutputStream(client.getOutputStream());
 			in = new ObjectInputStream(client.getInputStream());
-		}
-		catch (IOException e) {
+		} catch (IOException e) {
 			e.printStackTrace();
 		}
 	}
 
 	@Override
 	public void run() {
-		try
-		{
+		try (this) {
 			// Listen for LOGIN
 			PlaceRequest<?> maybeLogin = (PlaceRequest<?>) in.readUnshared();
 			try {
@@ -97,8 +115,7 @@ public class PlaceServerThread extends Thread implements Observer<PlaceServer, P
 				System.out.printf("%s (%s) has entered the chat\n", username, client.getInetAddress());
 				// Move on to indefinitely listening for CHANGE_TILE
 				PlaceRequest<?> maybeChangeTile;
-				// TODO: Detect when the client closes the connection
-				while ((maybeChangeTile = (PlaceRequest<?>) in.readUnshared()) != null) {
+				while (status == Status.RUNNING && (maybeChangeTile = (PlaceRequest<?>) in.readUnshared()) != null) {
 					// Whenever a CHANGE_TILE request is received, change the requested tile
 					if (maybeChangeTile.getType() == PlaceRequest.RequestType.CHANGE_TILE) {
 						PlaceTile tileToChange = (PlaceTile) maybeChangeTile.getData();
@@ -112,19 +129,13 @@ public class PlaceServerThread extends Thread implements Observer<PlaceServer, P
 					}
 				}
 			}
-		} catch (IOException e) {
-			// Tell the main server that the username that this client was using is now available
-			server.logOff(username);
-			// Display a message when a user logs off
-			System.out.printf("%s (%s) has left the chat\n", username, client.getInetAddress());
-			try {
-				client.close();
-			} catch (IOException ex) {
-				ex.printStackTrace();
-			}
-		} catch (ClassNotFoundException | InterruptedException e) {
-			e.printStackTrace();
+		} catch (Exception ignored) {
 		}
+		/* Detect when the client closes the connection
+		Tell the main server that the username that this client was using is now available */
+		server.logOff(username);
+		// Display a message when a user logs off
+		System.out.printf("%s (%s) has left the chat\n", username, client.getInetAddress());
 	}
 
 	@Override
@@ -132,9 +143,27 @@ public class PlaceServerThread extends Thread implements Observer<PlaceServer, P
 		board.setTile(placeTile);
 
 		try {
-			out.writeUnshared(new PlaceRequest<>(PlaceRequest.RequestType.TILE_CHANGED, placeTile));
+			if (!client.isClosed() && !client.isOutputShutdown())
+				out.writeUnshared(new PlaceRequest<>(PlaceRequest.RequestType.TILE_CHANGED, placeTile));
+			else
+				status = Status.ERROR;
 		} catch (IOException e) {
-			e.printStackTrace();
+			// Thread dies
+			try {
+				close();
+			} catch (IOException ex) {
+				ex.printStackTrace();
+			}
 		}
+	}
+
+	@Override
+	public void close() throws IOException {
+		if (client != null && !client.isClosed())
+			client.close();
+		if (in != null && client != null && !client.isClosed())
+			in.close();
+		if (out != null && client != null && !client.isClosed())
+			out.close();
 	}
 }
