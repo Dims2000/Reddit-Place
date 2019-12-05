@@ -58,7 +58,7 @@ public abstract class Bot extends Thread implements Observer<ClientModel, PlaceT
      * @param col the column of the tile
      * @param color the color of the tile
      */
-    public void printTileChange(int row, int col, PlaceColor color)
+    public synchronized void printTileChange(int row, int col, PlaceColor color)
     {
         System.out.println("TILE CHANGE: row = " + row +
                 " | col = " + col +
@@ -72,7 +72,7 @@ public abstract class Bot extends Thread implements Observer<ClientModel, PlaceT
      *
      * @param milliseconds the number of milliseconds the thread should sleep for
      */
-    public void pause(long milliseconds)
+    public synchronized void pause(long milliseconds)
     {
         try {
             sleep(milliseconds);
@@ -87,21 +87,21 @@ public abstract class Bot extends Thread implements Observer<ClientModel, PlaceT
      *
      * @return the board
      */
-    public PlaceBoard getBoard() { return board; }
+    public synchronized PlaceBoard getBoard() { return board; }
 
     /**
      * Returns the ClientModel
      *
      * @return the model
      */
-    public ClientModel getModel() { return model; }
+    public synchronized ClientModel getModel() { return model; }
 
     /**
      * Returns the array of colors
      *
      * @return COLORS array
      */
-    public PlaceColor[] getColors() { return COLORS; }
+    public synchronized PlaceColor[] getColors() { return COLORS; }
 
     /**
      * The abstract method that determines the behavior of Bot - must be implemented by the
@@ -110,5 +110,5 @@ public abstract class Bot extends Thread implements Observer<ClientModel, PlaceT
     public abstract void botActivity();
 
     @Override
-    public void update(ClientModel model, PlaceTile placeTile) { board.setTile(placeTile); }
+    public synchronized void update(ClientModel model, PlaceTile placeTile) { board.setTile(placeTile); }
 }

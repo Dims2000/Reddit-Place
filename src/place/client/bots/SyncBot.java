@@ -53,8 +53,8 @@ public class SyncBot extends Bot
 
     public static void main(String[] args)
     {
-        SyncBot queen = new SyncBot("queen.cs.rit.edu", "50008",
-                "pinkfloyd.cs.rit.edu", "50008", "SyncBot");
+        SyncBot queen = new SyncBot("queen.cs.rit.edu", "50009",
+                "pinkfloyd.cs.rit.edu", "50009", "SyncBot");
         queen.start();
     }
 }

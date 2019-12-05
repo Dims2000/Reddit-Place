@@ -29,15 +29,15 @@ public class RandomBot extends Bot
     public void botActivity()
     {
         // Initializes the random row, random column, and random color
-        int row = new Random().nextInt(getBoard().DIM + 1);
-        int col = new Random().nextInt(getBoard().DIM + 1);
+        int row = new Random().nextInt(getBoard().DIM);
+        int col = new Random().nextInt(getBoard().DIM);
         PlaceColor color = getColors()[new Random().nextInt(getColors().length)];
 
         // Changes a random tile on the server board based on the values initialized for row, col, and color
         getModel().changeTile(new PlaceTile(row, col, getModel().getUsername(), color, System.currentTimeMillis()));
         printTileChange(row, col, color); // Prints the information regarding the most recent tile change
 
-        pause(new Random().nextInt(10) + 1); // Sleeps for 1-10 seconds
+        pause(1000 * new Random().nextInt(10) + 1); // Sleeps for 1-10 seconds
     }
 
     /**
@@ -54,8 +54,11 @@ public class RandomBot extends Bot
             System.out.println("Usage: java RandomBot host port username");
         else
         {
-            RandomBot bot = new RandomBot(args);
-            bot.start();
+            for (int i = 0; i < 10; i++)
+            {
+                RandomBot bot = new RandomBot(new String[]{args[0], args[1], args[2] + i});
+                bot.start();
+            }
         }
     }
 }
