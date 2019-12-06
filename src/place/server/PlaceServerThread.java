@@ -12,7 +12,12 @@ import java.io.ObjectOutputStream;
 import java.net.Socket;
 
 /**
- * TODO: Documentation
+ * Since the {@link PlaceServer} is multi-threaded, each client that must connect to it runs on its own thread. This class
+ * encapsulates the logic needed for a the server to interact with a client, including implementing the "server's half"
+ * of the Place application protocol, namely LOGIN_SUCCESS, BOARD, TILE_CHANGED, and ERROR.
+ * <p>
+ * Notice this class implements {@link Closeable}. Each client thread has its own connection to the client that must be
+ * closed. This is done automatically in this class' {@link PlaceServerThread#run} method.
  *
  * @author Joey Territo
  * @since 12/3/19
@@ -23,32 +28,33 @@ public class PlaceServerThread extends Thread implements Observer<PlaceServer, P
 	 */
 	private PlaceServer server;
 	/**
-	 * TODO: Documentation
+	 * The connection to the client this {@code PlaceServerThread} is handling
 	 */
 	private Socket client;
 	/**
-	 * TODO: Documentation
+	 * A {@link PlaceBoard} that this thread uses to keep track of its own board state
 	 */
 	private PlaceBoard board;
 	/**
-	 * TODO: Documentation
+	 * The name that the client wants to connect to the server with
 	 */
 	private String username;
 	/**
-	 * TODO: Documentation
+	 * The gateway for sending requests to the client
 	 */
 	private ObjectInputStream in;
 	/**
-	 * TODO: Documentation
+	 * The gateway for reading in requests from the client
 	 */
 	private ObjectOutputStream out;
 	/**
-	 * TODO: Documentation
+	 * A flag to keep track of whether or not an error has occurred
 	 */
 	private Status status;
 
 	/**
-	 * TODO: Documentation
+	 * A type to represent the two states of this thread: either running (an error has not yet occurred) or error (an
+	 * error has occurred)
 	 */
 	enum Status {
 		RUNNING,
@@ -56,10 +62,11 @@ public class PlaceServerThread extends Thread implements Observer<PlaceServer, P
 	}
 
 	/**
-	 * TODO: Documentation
+	 * Create a new {@code PlaceServerThread}. Note this this does not <em>spawn</em> the thread, i.e. just creating
+	 * the thread doesn't do much.
 	 *
-	 * @param clientServer
-	 * @param client
+	 * @param clientServer which server this thread is running on
+	 * @param client the client to connect to
 	 */
 	public PlaceServerThread(PlaceServer clientServer, Socket client) {
 		server = clientServer;
@@ -94,7 +101,7 @@ public class PlaceServerThread extends Thread implements Observer<PlaceServer, P
 					"Did not receive an initial LOGIN request"
 				);
 				out.writeUnshared(didntLogin);
-			} else if (!server.isUsernameValid((String) maybeLogin.getData())) {
+			} else if (!server.isUsernameValid(username)) {
 				/* The first request was LOGIN, but the username was invalid
 				   Since the username is invalid, send back an ERROR */
 				PlaceRequest<String> usernameTaken = new PlaceRequest<>(
