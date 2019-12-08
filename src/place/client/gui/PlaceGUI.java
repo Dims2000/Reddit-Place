@@ -25,8 +25,11 @@ import java.util.List;
  * A graphical user interface to the Place application. The GUI consists of a board of colored squares representing
  * the stats of the place board, and a row of buttons at the bottom that the user can click on to select which color
  * they want to paint the Place board with. This class encapsulates all the logic to create such a window.
+ * <p>
+ * Last modified: 12/3/19
  *
  * @author Joey Territo
+ * @since 11/21/19
  */
 public class PlaceGUI extends Application implements Observer<ClientModel, PlaceTile> {
 	/**
@@ -93,6 +96,11 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 			this.column = col;
 		}
 
+		/**
+		 * Tell the model to change whichever tile was clicked on.
+		 *
+		 * @param mouseEvent an object encapsulating the context of where the window was clicked on
+		 */
 		@Override
 		public void handle(MouseEvent mouseEvent) {
 			// Change the color of the tile that was clicked on
@@ -124,6 +132,10 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 		}
 	}
 
+	/**
+	 * Set up the PlaceGUI. This method reads the command line arguments, creates a {@link ClientModel} from the given
+	 * arguments and subscribes to this client model.
+	 */
 	@Override
 	public void init() {
 		List<String> args = getParameters().getRaw();
@@ -134,6 +146,12 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 		while (model.getBoard() == null) ;
 	}
 
+	/**
+	 * The main logic of the PlaceGUI application. Creates the necessary nodes to draw the window, adds the appropriate
+	 * event listeners to the right nodes, and shows the window.
+	 *
+	 * @param primaryStage an object representing the outer-most window of the GUI
+	 */
 	@Override
 	public void start(Stage primaryStage) {
 		// Initialize the tileGrid with the dimensions of the board gotten from the server
@@ -141,7 +159,7 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 		tileGrid = new Rectangle[board.DIM][board.DIM];
 		/*
 		 * The Scene will be divided into 2 sections:
-		 * (1) The upper section will be a GridPane of Rectangles representing the Place board.
+		 * (1) The upper section will be a ScrollPane with a GridPane of Rectangles representing the Place board.
 		 * (2) The lower section will be a ToggleGroup of ToggleButtons representing the list of colors that the user
 		 * can click on.
 		 *
@@ -179,37 +197,7 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 	 * @return a GridPane of Rectangles
 	 */
 	private GridPane makePlaceBoard() {
-		final double MIN_SCALE = 0.1;
-		final double MAX_SCALE = 10;
-
 		GridPane tiles = new GridPane();
-
-		// Make GridPane scrollable
-/*
-		tiles.setOnScroll(scrollEvent -> {
-			double scale = tiles.getScaleY();
-			double oldScale = scale;
-
-			if (scrollEvent.getDeltaY() < 0)
-				scale /= SCALE_DELTA;
-			else
-				scale *= SCALE_DELTA;
-
-			scale = clamp(scale, MIN_SCALE, MAX_SCALE);
-
-			double f = (scale / oldScale) - 1;
-
-			double dx = (scrollEvent.getSceneX() - (tiles.getBoundsInParent().getWidth() / 2 + tiles.getBoundsInParent().getMinX()));
-			double dy = (scrollEvent.getSceneY() - (tiles.getBoundsInParent().getHeight() / 2 + tiles.getBoundsInParent().getMinY()));
-
-			tiles.setScaleX(scale);
-			tiles.setScaleY(scale);
-
-			tiles.setTranslateX(tiles.getTranslateX() - (f * dx));
-			tiles.setTranslateY(tiles.getTranslateY() - (f * dy));
-			scrollEvent.consume();
-		});
-*/
 
 		// Add tiles to the GridPane
 		PlaceBoard board = model.getBoard();
@@ -292,12 +280,14 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 			viewport.setTranslateY(0.0);
 		});
 
+		// Add a button to zoom in (replaces using a ScrollEvent to zoom in and out)
 		Button zoomIn = new Button("+");
 		zoomIn.setOnAction(e -> {
 			viewport.setScaleX(viewport.getScaleX() * 1.10);
 			viewport.setScaleY(viewport.getScaleY() * 1.10);
 		});
 
+		// Add a button to zoom out (replaces using a ScrollEvent to zoom in and out)
 		Button zoomOut = new Button("-");
 		zoomOut.setOnAction(e -> {
 			viewport.setScaleX(viewport.getScaleX() * 0.90);
@@ -344,6 +334,13 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 		return t;
 	}
 
+	/**
+	 * Method that is called when this GUI is notified by the ClientModel that a change in the state of the board has
+	 * occurred. This method will change the GUI to reflect the change in board state
+	 *
+	 * @param model the ClientModel whose state has changed
+	 * @param tile  the tile that changed
+	 */
 	@Override
 	public void update(ClientModel model, PlaceTile tile) {
 		// Notify the board that a tile has changed
@@ -352,7 +349,6 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 		int row = tile.getRow();
 		int col = tile.getCol();
 
-		// NOTICE: I have no idea if I need Platform.runLater
 		Platform.runLater(() -> {
 			Rectangle square = tileGrid[row][col];
 			square.setFill(placeColor2JavaFXColor(tile.getColor()));
@@ -371,26 +367,11 @@ public class PlaceGUI extends Application implements Observer<ClientModel, Place
 	}
 
 	/**
-	 * Ensure a value is within a certain range. This method will return the given value, x, unless it is out of bounds,
-	 * in which case one of two things can happen:
-	 * <ol>
-	 *     <li>if the value is below the lower bound, then the lower bound is returned</li>
-	 *     <li>if the value is above the upper bound, then the upper bound is returned</li>
-	 * </ol>
+	 * The starting point of the application. This method merely validates that the correct number of command line
+	 * arguments have been passed in and then launches the application.
 	 *
-	 * @param x   the value to return
-	 * @param min the lower bound of the range
-	 * @param max the upper bound of the range
-	 * @return the value, unless it is out of bounds
+	 * @param args the command line arguments
 	 */
-	private static double clamp(double x, double min, double max) {
-		if (x < min)
-			return min;
-		if (x > max)
-			return max;
-		return x;
-	}
-
 	public static void main(String[] args) {
 		if (args.length != 3) {
 			System.out.println("Usage: java PlaceGUI host port username");

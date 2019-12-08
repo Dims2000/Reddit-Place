@@ -13,6 +13,8 @@ import java.net.Socket;
  * as it facilitates the connections between the model and the server. When a server sends a message indicating that a
  * change has occurred, this class gets that connection and then can immediately forward it to the model. Likewise, a
  * model can tell this User to convey the server some information.
+ * <p>
+ * Last modified: 11/21/19
  *
  * @author Joey Territo
  * @since 11/19/19

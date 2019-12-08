@@ -18,6 +18,8 @@ import java.net.Socket;
  * <p>
  * Notice this class implements {@link Closeable}. Each client thread has its own connection to the client that must be
  * closed. This is done automatically in this class' {@link PlaceServerThread#run} method.
+ * <p>
+ * Last-modified: 12/6/19
  *
  * @author Joey Territo
  * @since 12/3/19
@@ -83,6 +85,16 @@ public class PlaceServerThread extends Thread implements Observer<PlaceServer, P
 		}
 	}
 
+	/**
+	 * The main logic of this thread. A client thread:
+	 * <ul>
+	 *     <li>Listens for the client to LOGIN</li>
+	 *     <li>Ensures the client logged in with a valid (not taken) username</li>
+	 *     <li>Sends the client LOGIN_SUCCESS followed by BOARD</li>
+	 *     <li>Listens for and handles CHANGE_TILE requests</li>
+	 *     <li>Disconnects the client when the client chooses to log off</li>
+	 * </ul>
+	 */
 	@Override
 	public void run() {
 		try (this) {
@@ -145,6 +157,13 @@ public class PlaceServerThread extends Thread implements Observer<PlaceServer, P
 		System.out.printf("%s (%s) has left the chat\n", username, client.getInetAddress());
 	}
 
+	/**
+	 * The method that is called when this thread is alerted about a changed tile. It updates the state of this PlaceBoard
+	 * and then sends TILE_CHANGED to the client.
+	 *
+	 * @param placeServer the server that this thread is running on
+	 * @param placeTile   the tile that changed
+	 */
 	@Override
 	public void update(PlaceServer placeServer, PlaceTile placeTile) {
 		board.setTile(placeTile);
@@ -164,6 +183,11 @@ public class PlaceServerThread extends Thread implements Observer<PlaceServer, P
 		}
 	}
 
+	/**
+	 * Closes all connections to the client, including the socket and object input/output streams.
+	 *
+	 * @throws IOException if an exception occurred while closing the Socket, ObjectInputStream, or ObjectOutputStream
+	 */
 	@Override
 	public void close() throws IOException {
 		if (client != null && !client.isClosed())
