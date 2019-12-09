@@ -5,10 +5,7 @@ import place.PlaceTile;
 import place.model.Observer;
 import place.network.PlaceRequest;
 
-import java.io.Closeable;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.io.*;
 import java.net.Socket;
 
 /**
@@ -24,45 +21,34 @@ import java.net.Socket;
  * @author Joey Territo
  * @since 12/3/19
  */
-public class PlaceServerThread extends Thread implements Observer<PlaceServer, PlaceTile>, Closeable {
-	/**
-	 * The PlaceServer this client's thread is running on
-	 */
+public class PlaceServerThread extends Thread implements Observer<PlaceServer, PlaceTile>, Closeable
+{
+	/** The PlaceServer this client's thread is running on */
 	private PlaceServer server;
-	/**
-	 * The connection to the client this {@code PlaceServerThread} is handling
-	 */
+
+	/** The connection to the client this {@code PlaceServerThread} is handling */
 	private Socket client;
-	/**
-	 * A {@link PlaceBoard} that this thread uses to keep track of its own board state
-	 */
+
+	/** A {@link PlaceBoard} that this thread uses to keep track of its own board state */
 	private PlaceBoard board;
-	/**
-	 * The name that the client wants to connect to the server with
-	 */
+
+	/** The name that the client wants to connect to the server with */
 	private String username;
-	/**
-	 * The gateway for sending requests to the client
-	 */
+
+	/** The gateway for sending requests to the client */
 	private ObjectInputStream in;
-	/**
-	 * The gateway for reading in requests from the client
-	 */
+
+	/** The gateway for reading in requests from the client */
 	private ObjectOutputStream out;
-	/**
-	 * A flag to keep track of whether or not an error has occurred
-	 */
+
+	/** A flag to keep track of whether or not an error has occurred */
 	private Status status;
 
 	/**
 	 * A type to represent the two states of this thread: either running (an error has not yet occurred) or error (an
 	 * error has occurred)
 	 */
-	enum Status {
-		RUNNING,
-		CLOSED,
-		ERROR,
-	}
+	enum Status { RUNNING, CLOSED, ERROR }
 
 	/**
 	 * Create a new {@code PlaceServerThread}. Note this this does not <em>spawn</em> the thread, i.e. just creating
@@ -71,17 +57,20 @@ public class PlaceServerThread extends Thread implements Observer<PlaceServer, P
 	 * @param clientServer which server this thread is running on
 	 * @param client the client to connect to
 	 */
-	public PlaceServerThread(PlaceServer clientServer, Socket client) {
+	public PlaceServerThread(PlaceServer clientServer, Socket client)
+	{
 		server = clientServer;
 		this.client = client;
 		board = clientServer.getBoard();
 		username = "";
 		status = Status.RUNNING;
 
-		try {
+		try
+		{
 			out = new ObjectOutputStream(client.getOutputStream());
 			in = new ObjectInputStream(client.getInputStream());
-		} catch (IOException e) {
+		}
+		catch (IOException e) {
 			e.printStackTrace();
 		}
 	}
@@ -97,63 +86,91 @@ public class PlaceServerThread extends Thread implements Observer<PlaceServer, P
 	 * </ul>
 	 */
 	@Override
-	public void run() {
-		try (this) {
+	public void run()
+	{
+		try (this)
+		{
 			// Listen for LOGIN
 			PlaceRequest<?> maybeLogin = (PlaceRequest<?>) in.readUnshared();
+
 			try {
 				username = (String) maybeLogin.getData();
-			} catch (ClassCastException e) {
+				logToFile("Received LOGIN from " + username);
+			}
+			catch (ClassCastException e) {
 				username = "";
 			}
+
 			// If it's not LOGIN...
-			if (maybeLogin.getType() != PlaceRequest.RequestType.LOGIN) {
+			if (maybeLogin.getType() != PlaceRequest.RequestType.LOGIN)
+			{
 				// ...then send back ERROR
 				PlaceRequest<String> didntLogin = new PlaceRequest<>(
-					PlaceRequest.RequestType.ERROR,
-					"Did not receive an initial LOGIN request"
-				);
+					PlaceRequest.RequestType.ERROR, "Did not receive an initial LOGIN request");
+
 				out.writeUnshared(didntLogin);
-			} else if (!server.isUsernameValid(username)) {
+				logToFile("Sent ERROR to " + username + "(Did not receive an initial LOGIN request)");
+			}
+			else if (!server.isUsernameValid(username))
+			{
 				/* The first request was LOGIN, but the username was invalid
 				   Since the username is invalid, send back an ERROR */
-				PlaceRequest<String> usernameTaken = new PlaceRequest<>(
-					PlaceRequest.RequestType.ERROR,
-					String.format("A user with the username %s is already logged in", username)
-				);
+				PlaceRequest<String> usernameTaken = new PlaceRequest<>(PlaceRequest.RequestType.ERROR,
+					String.format("A user with the username %s is already logged in", username));
+
 				out.writeUnshared(usernameTaken);
-			} else {
+				logToFile("Sent ERROR to " + username + "(Same username conflict)");
+			}
+			else
+			{
 				// Login was successful
 				PlaceRequest<String> loginSuccessful = new PlaceRequest<>(PlaceRequest.RequestType.LOGIN_SUCCESS, username);
 				out.writeUnshared(loginSuccessful);
+				logToFile("Sent LOGIN_SUCCESS to " + username);
+
 				// The board is sent only once directly after a successful login attempt
 				PlaceRequest<PlaceBoard> initialBoard = new PlaceRequest<>(PlaceRequest.RequestType.BOARD, board);
 				out.writeUnshared(initialBoard);
+				logToFile("Sent BOARD to " + username);
+
 				// Tell the main server about a new username
 				server.logIn(username, this);
+
 				// Display the username and IP address of a client when they login
 				System.out.printf("%s (%s) has entered the chat\n", username, client.getInetAddress());
-				// Move on to indefinitely listening for CHANGE_TILE
+
 				PlaceRequest<?> maybeChangeTile;
-				while (status == Status.RUNNING && (maybeChangeTile = (PlaceRequest<?>) in.readUnshared()) != null) {
+
+				// Move on to indefinitely listening for CHANGE_TILE
+				while (status == Status.RUNNING && (maybeChangeTile = (PlaceRequest<?>) in.readUnshared()) != null)
+				{
 					// Whenever a CHANGE_TILE request is received, change the requested tile
-					if (maybeChangeTile.getType() == PlaceRequest.RequestType.CHANGE_TILE) {
+					if (maybeChangeTile.getType() == PlaceRequest.RequestType.CHANGE_TILE)
+					{
 						PlaceTile tileToChange = (PlaceTile) maybeChangeTile.getData();
+
 						// When a tile change comes in, it should be recorded by the server with a timestamp of the current time
 						tileToChange.setTime(System.currentTimeMillis());
 						server.changeBoardTile(tileToChange);
+						logToFile("Received CHANGE_TILE from " + username);
 
 						PlaceRequest<PlaceTile> tileChanged = new PlaceRequest<>(PlaceRequest.RequestType.TILE_CHANGED, tileToChange);
 						out.writeUnshared(tileChanged);
+						logToFile("Sent TILE_CHANGED to " + username);
+
 						sleep(500);
 					}
 				}
 			}
-		} catch (Exception ignored) {
+
+			logToFile(username + " has left the server");
 		}
+		catch (Exception ignored) {}
+
 		/* Detect when the client closes the connection
 		Tell the main server that the username that this client was using is now available */
 		server.logOff(username);
+
 		// Display a message when a user logs off
 		System.out.printf("%s (%s) has left the chat\n", username, client.getInetAddress());
 	}
@@ -168,7 +185,16 @@ public class PlaceServerThread extends Thread implements Observer<PlaceServer, P
 	{
 		status = Status.CLOSED;
 		out.writeUnshared(new PlaceRequest<>(PlaceRequest.RequestType.ERROR, "Server Closed"));
+		logToFile("Sent ERROR to " + username + "(Server Closed)");
 	}
+
+	/**
+	 * A private method that simply forwards a log of a PlaceRequest
+	 * to a synchronized method inside PlaceServer
+	 *
+	 * @param message the message to be written to an external log file
+	 */
+	private void logToFile (String message) { server.writeToFile(message); }
 
 	/**
 	 * The method that is called when this thread is alerted about a changed tile. It updates the state of this PlaceBoard
@@ -178,19 +204,24 @@ public class PlaceServerThread extends Thread implements Observer<PlaceServer, P
 	 * @param placeTile   the tile that changed
 	 */
 	@Override
-	public void update(PlaceServer placeServer, PlaceTile placeTile) {
+	public void update(PlaceServer placeServer, PlaceTile placeTile)
+	{
 		board.setTile(placeTile);
 
-		try {
+		try
+		{
 			if (!client.isClosed() && !client.isOutputShutdown())
 				out.writeUnshared(new PlaceRequest<>(PlaceRequest.RequestType.TILE_CHANGED, placeTile));
 			else
 				status = Status.ERROR;
-		} catch (IOException e) {
+		}
+		catch (IOException e)
+		{
 			// Thread dies
 			try {
 				close();
-			} catch (IOException ex) {
+			}
+			catch (IOException ex) {
 				ex.printStackTrace();
 			}
 		}
@@ -202,11 +233,14 @@ public class PlaceServerThread extends Thread implements Observer<PlaceServer, P
 	 * @throws IOException if an exception occurred while closing the Socket, ObjectInputStream, or ObjectOutputStream
 	 */
 	@Override
-	public void close() throws IOException {
+	public void close() throws IOException
+	{
 		if (client != null && !client.isClosed())
 			client.close();
+
 		if (in != null && client != null && !client.isClosed())
 			in.close();
+
 		if (out != null && client != null && !client.isClosed())
 			out.close();
 	}
