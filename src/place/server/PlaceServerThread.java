@@ -19,7 +19,7 @@ import java.net.Socket;
  * Notice this class implements {@link Closeable}. Each client thread has its own connection to the client that must be
  * closed. This is done automatically in this class' {@link PlaceServerThread#run} method.
  * <p>
- * Last-modified: 12/6/19
+ * Last-modified: 12/8/19
  *
  * @author Joey Territo
  * @since 12/3/19
@@ -60,6 +60,7 @@ public class PlaceServerThread extends Thread implements Observer<PlaceServer, P
 	 */
 	enum Status {
 		RUNNING,
+		CLOSED,
 		ERROR,
 	}
 
@@ -155,6 +156,18 @@ public class PlaceServerThread extends Thread implements Observer<PlaceServer, P
 		server.logOff(username);
 		// Display a message when a user logs off
 		System.out.printf("%s (%s) has left the chat\n", username, client.getInetAddress());
+	}
+
+	/**
+	 * Ends the connection between the server and the client by sending an error message to
+	 * the client and changing the status to CLOSED
+	 *
+	 * @throws IOException if out.writeUnshared() throws an IOException
+	 */
+	public void serverClosed () throws IOException
+	{
+		status = Status.CLOSED;
+		out.writeUnshared(new PlaceRequest<>(PlaceRequest.RequestType.ERROR, "Server Closed"));
 	}
 
 	/**
