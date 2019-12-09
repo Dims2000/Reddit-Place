@@ -4,6 +4,7 @@ import place.PlaceBoard;
 import place.PlaceTile;
 import place.model.Observer;
 
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -16,7 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * $ java PlaceServer port DIM
  *
  * Where port is the port number of the host and DIM is the square dimension
- * of the board.
+ * of the board. This class represents the server end of Place.
  *
  * @author Sean Strout @ RIT CS
  * @author Dmitry Selin
@@ -46,9 +47,12 @@ public class PlaceServer extends Thread
     /** the dimensions of board */
     private final int DIM;
 
+    /** the FileWriter that logs all exchanges between the server and client */
+    private FileWriter log;
+
     /**
      * Creates a new PlaceServer: initializes the port and board dimensions
-     * of the new server
+     * of the new server (as well as the FileWriter, log)
      *
      * @param port the port that clients must use to connect to the server
      * @param DIM the dimensions of board
@@ -57,6 +61,13 @@ public class PlaceServer extends Thread
     {
         PORT = port;
         this.DIM = DIM;
+
+        try {
+            log = new FileWriter("./src/place/server/ServerLog.txt");
+        }
+        catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -117,6 +128,23 @@ public class PlaceServer extends Thread
     }
 
     /**
+     * This method writes out message to an external text file (Utilized by PlaceServerThread)
+     *
+     * @param message the message to be written out
+     */
+    public synchronized void writeToFile (String message)
+    {
+        try
+        {
+            log.write(message + "\n");
+            log.flush();
+        }
+        catch (IOException e) {
+            System.err.println(e.getMessage());
+        }
+    }
+
+    /**
      * Closes the server. This method is called by ServerStopListener and closes all
      * PlaceServerThread threads that are running before closing serverSocket.
      */
@@ -160,16 +188,18 @@ public class PlaceServer extends Thread
                 // This creates and starts a new thread that represents an individual client connection
                 new PlaceServerThread(this, client).start();
             }
-
-            // Sleeps for 1 second while PlaceServerThread objects finish running
-            Thread.sleep(1000);
         }
-        catch (IOException | InterruptedException e)
+        catch (IOException e)
         {
             // Only display an error message if the server was not shut down voluntarily
             if (stopListener.isServerRunning())
                 System.err.println(e.getMessage());
         }
+
+        try {
+            Thread.sleep(2000); // Sleeps for 2 seconds while PlaceServerThread objects finish running
+        }
+        catch (InterruptedException ignored) {}
 
         statListener.getStats(); // Display the stats for the run of the server
     }
