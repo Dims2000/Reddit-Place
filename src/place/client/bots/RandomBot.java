@@ -56,7 +56,7 @@ public class RandomBot extends Bot
                 bot.start();
             }
             case 2: {
-                for (int i = 0; i < 20; i++) {
+                for (int i = 0; i < 5; i++) {
                     String username = String.format("Random Bot %d", i);
                     RandomBot bot = new RandomBot(new String[]{args[0], args[1], username});
                     bot.start();
